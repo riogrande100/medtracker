@@ -31,6 +31,7 @@ pub fn run() {
             commands::restore_dose,
             commands::delete_dose_entry,
             commands::list_history,
+            commands::upgrade_copy_exists,
             commands::create_medication,
             commands::list_medications,
             commands::archive_medication,

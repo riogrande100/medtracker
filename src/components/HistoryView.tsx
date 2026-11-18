@@ -1,8 +1,12 @@
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { useEffect, useState } from "react";
-import { type Api, type DoseKind, type HistoryEntry, errorMessage } from "../lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { type Api, type DoseKind, type HistoryCursor, type HistoryEntry, errorMessage } from "../lib/api";
 import { formatLocal, formatOffset, medLabel } from "../lib/format";
+import { InAppErasureNote, UpgradeCopyNote } from "./PrivacyNotes";
 import { Button, Field, Modal, inputClass } from "./ui";
+
+const PAGE = 50;
+const MAX_RELOAD = 1000;
 
 function CorrectDialog({ api, entry, onClose, onSaved }: { api: Api; entry: HistoryEntry; onClose: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState<DoseKind>(entry.kind);
@@ -50,7 +54,7 @@ function CorrectDialog({ api, entry, onClose, onSaved }: { api: Api; entry: Hist
 }
 
 /** Permanent privacy deletion. Deliberately worded and styled differently from Undo. */
-function DeleteEntryDialog({ entry, onConfirm }: { entry: HistoryEntry; onConfirm: () => void }) {
+function DeleteEntryDialog({ entry, upgradeCopy, onConfirm }: { entry: HistoryEntry; upgradeCopy: boolean; onConfirm: () => void }) {
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
@@ -60,9 +64,14 @@ function DeleteEntryDialog({ entry, onConfirm }: { entry: HistoryEntry; onConfir
         <AlertDialog.Overlay className="fixed inset-0 bg-black/40" />
         <AlertDialog.Content className="fixed inset-x-3 top-6 mx-auto max-w-md rounded-xl bg-white p-5 shadow-lg">
           <AlertDialog.Title className="text-xl font-semibold">Permanently delete this entry's details?</AlertDialog.Title>
-          <AlertDialog.Description className="my-3">
-            This erases the note and the saved before-and-after details of every change to this {entry.name} entry. A marker stays in
-            History saying an entry was deleted. This is not Undo: it can't be reversed or restored.
+          <AlertDialog.Description className="my-3 space-y-2">
+            <span className="block">
+              This erases the note and the saved before-and-after contents of every change to this {entry.name} entry. It does not erase
+              that the entry existed, which medication it was for, its time, or whether it was taken or skipped: those stay in History,
+              with a marker that it was deleted. This is not Undo: it can't be reversed or restored.
+            </span>
+            <InAppErasureNote />
+            <UpgradeCopyNote show={upgradeCopy} />
           </AlertDialog.Description>
           <div className="flex gap-2">
             <AlertDialog.Cancel asChild><Button className="flex-1">Keep it</Button></AlertDialog.Cancel>
@@ -76,12 +85,49 @@ function DeleteEntryDialog({ entry, onConfirm }: { entry: HistoryEntry; onConfir
 
 export function HistoryView({ api, version, onChanged }: { api: Api; version: number; onChanged: () => void }) {
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
+  const [cursor, setCursor] = useState<HistoryCursor | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [upgradeCopy, setUpgradeCopy] = useState(false);
   const [editing, setEditing] = useState<HistoryEntry | null>(null);
   const [message, setMessage] = useState("");
+  const loaded = useRef(0);
 
+  // Reload keeps as many entries on screen as were already loaded, so a change near the top
+  // doesn't collapse the older pages the user scrolled to.
   useEffect(() => {
-    api.listHistory().then(setEntries, (e) => setMessage(errorMessage(e)));
+    let live = true;
+    api.listHistory({ limit: Math.min(MAX_RELOAD, Math.max(PAGE, loaded.current)) }).then(
+      (p) => {
+        if (!live) return;
+        loaded.current = p.entries.length;
+        setEntries(p.entries);
+        setCursor(p.next_cursor);
+      },
+      (e) => live && setMessage(errorMessage(e)),
+    );
+    api.upgradeCopyExists().then((v) => live && setUpgradeCopy(v), () => {});
+    return () => {
+      live = false;
+    };
   }, [api, version]);
+
+  const loadOlder = useCallback(async () => {
+    if (!cursor) return;
+    setLoadingOlder(true);
+    try {
+      const p = await api.listHistory({ limit: PAGE, before: cursor });
+      setEntries((cur) => {
+        const next = [...(cur ?? []), ...p.entries];
+        loaded.current = next.length;
+        return next;
+      });
+      setCursor(p.next_cursor);
+    } catch (e) {
+      setMessage(errorMessage(e));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [api, cursor]);
 
   async function run(fn: () => Promise<void>) {
     try {
@@ -107,7 +153,7 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
           {entries.map((e) => (
             <li key={e.event_id} className={`rounded-xl border border-neutral-300 p-4 ${e.undone || e.deleted ? "bg-neutral-100" : "bg-white"}`}>
               <p className="text-lg font-semibold">
-                {medLabel(e.name, e.strength)} — {e.deleted ? "Deleted" : e.undone ? "Undone" : e.kind === "take" ? "Taken" : "Skipped"}
+                {medLabel(e.name, e.strength)} — {e.deleted ? `Deleted (was ${e.kind === "take" ? "taken" : "skipped"})` : e.undone ? "Undone" : e.kind === "take" ? "Taken" : "Skipped"}
               </p>
               <p>{formatLocal(e.current_local)}{e.slot_time ? ` (scheduled ${e.slot_time})` : " (not tied to a schedule)"}</p>
               <p className="text-sm text-neutral-700">
@@ -115,7 +161,9 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
                 {e.original_zone_id ? ` (${e.original_zone_id})` : ""}
               </p>
               {e.deleted && (
-                <p className="text-sm">Details permanently deleted. Only this marker remains.</p>
+                <p className="text-sm">
+                  Note and change details permanently deleted. The medication, time and whether it was taken or skipped stay in History.
+                </p>
               )}
               {e.note && <p className="text-sm">Note: {e.note}</p>}
               {e.revisions.length > 0 && (
@@ -143,12 +191,17 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
                       <Button onClick={() => run(() => api.undoDose(e.event_id))}>Undo<span className="sr-only"> {e.name} entry</span></Button>
                     </>
                   )}
-                  <DeleteEntryDialog entry={e} onConfirm={() => run(() => api.deleteDoseEntry(e.event_id))} />
+                  <DeleteEntryDialog entry={e} upgradeCopy={upgradeCopy} onConfirm={() => run(() => api.deleteDoseEntry(e.event_id))} />
                 </div>
               )}
             </li>
           ))}
         </ul>
+      )}
+      {cursor && (
+        <Button className="w-full" disabled={loadingOlder} onClick={loadOlder}>
+          {loadingOlder ? "Loading…" : "Load older entries"}
+        </Button>
       )}
       {editing && (
         <CorrectDialog api={api} entry={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onChanged(); }} />

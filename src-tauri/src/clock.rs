@@ -2,7 +2,7 @@ use crate::error::{invalid, AppResult};
 use chrono::{Local, Offset};
 use jiff::{
     civil::DateTime,
-    tz::{Offset as JOffset, TimeZone},
+    tz::{AmbiguousOffset, Offset as JOffset, TimeZone},
     Timestamp,
 };
 
@@ -75,7 +75,16 @@ impl Zone {
     ///   2026-03-08 in New York becomes 03:30 EDT, UTC-4). The returned `local`/`offset_seconds`
     ///   describe that real instant, so stored values always agree with each other.
     pub fn resolve(&self, dt: DateTime) -> AppResult<Resolved> {
-        match self.tz.to_ambiguous_zoned_datetime(dt).compatible() {
+        self.resolve_choice(dt, false)
+    }
+
+    /// Like `resolve`, but when the wall time occurs twice (fall-back overlap) and
+    /// `second_occurrence` is true, picks the LATER instant (the offset after the clock change).
+    /// The flag is ignored for wall times that are not repeated.
+    pub fn resolve_choice(&self, dt: DateTime, second_occurrence: bool) -> AppResult<Resolved> {
+        let amb = self.tz.to_ambiguous_zoned_datetime(dt);
+        let pick = if second_occurrence && matches!(amb.offset(), AmbiguousOffset::Fold { .. }) { amb.later() } else { amb.compatible() };
+        match pick {
             Ok(z) => Ok(Resolved {
                 utc_us: z.timestamp().as_microsecond(),
                 offset_seconds: z.offset().seconds(),
@@ -120,9 +129,10 @@ impl TimeCtx {
         t.hour() as u32 * 60 + t.minute() as u32
     }
 
-    /// Resolve a user-entered "YYYY-MM-DDTHH:MM" in this context's zone.
-    pub fn resolve_local(&self, s: &str) -> AppResult<Resolved> {
-        self.zone.resolve(parse_local(s)?)
+    /// Resolve a user-entered "YYYY-MM-DDTHH:MM" in this context's zone, optionally choosing the
+    /// second occurrence of a repeated (fall-back) hour.
+    pub fn resolve_local_choice(&self, s: &str, second_occurrence: bool) -> AppResult<Resolved> {
+        self.zone.resolve_choice(parse_local(s)?, second_occurrence)
     }
 }
 
@@ -234,6 +244,14 @@ mod tests {
         assert_eq!(local_from_utc(r.utc_us + 3_600_000_000, -5 * 3600), r.local);
         assert_eq!(at(&ny, "2026-11-01T00:59").offset_seconds, -4 * 3600);
         assert_eq!(at(&ny, "2026-11-01T02:00").offset_seconds, -5 * 3600);
+        // Explicitly choosing the second occurrence gives the later instant, same wall reading.
+        let second = ny.resolve_choice(parse_local("2026-11-01T01:30").unwrap(), true).unwrap();
+        assert_eq!(second.offset_seconds, -5 * 3600);
+        assert_eq!(second.utc_us, r.utc_us + 3_600_000_000);
+        assert_eq!(second.local, r.local);
+        // The choice is ignored when the time is not repeated.
+        assert_eq!(ny.resolve_choice(parse_local("2026-11-01T03:30").unwrap(), true).unwrap().offset_seconds, -5 * 3600);
+        assert_eq!(ny.resolve_choice(parse_local("2026-07-01T03:30").unwrap(), true).unwrap().offset_seconds, -4 * 3600);
     }
 
     #[test]

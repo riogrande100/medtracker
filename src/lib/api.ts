@@ -68,6 +68,8 @@ export interface RecordDose {
   local_date: string | null;
   occurred_local: string | null;
   note: string | null;
+  /** Only for a wall time that happens twice (clocks going back): true picks the later one. Default earlier. */
+  second_occurrence?: boolean | null;
 }
 
 export interface CorrectDose {
@@ -75,6 +77,21 @@ export interface CorrectDose {
   kind: DoseKind | null;
   occurred_local: string | null;
   note: string | null;
+  /** As RecordDose. Omit to keep the entry's stored instant when the wall time is unchanged. */
+  second_occurrence?: boolean | null;
+}
+
+/** Position in History; pass a page's `next_cursor` back as `before` to get older entries. */
+export interface HistoryCursor {
+  occurred_at_utc_us: number;
+  entered_at_utc_us: number;
+  event_id: string;
+}
+
+export interface HistoryPage {
+  entries: HistoryEntry[];
+  /** Present when older entries exist. */
+  next_cursor: HistoryCursor | null;
 }
 
 export type AppErrorKind =
@@ -114,7 +131,11 @@ export const api = {
   restoreDose: (eventId: string) => invoke<void>("restore_dose", { eventId }),
   /** Permanent privacy deletion of one entry's details. Not the same as Undo. */
   deleteDoseEntry: (eventId: string) => invoke<void>("delete_dose_entry", { eventId }),
-  listHistory: () => invoke<HistoryEntry[]>("list_history"),
+  /** Newest first. `before` is the previous page's `next_cursor`. */
+  listHistory: (opts: { limit?: number; before?: HistoryCursor | null } = {}) =>
+    invoke<HistoryPage>("list_history", { limit: opts.limit ?? null, before: opts.before ?? null }),
+  /** True while a temporary pre-upgrade copy of the data (made by this launch) still exists on the device. */
+  upgradeCopyExists: () => invoke<boolean>("upgrade_copy_exists"),
   createMedication: (input: NewMedication) => invoke<string>("create_medication", { input }),
   listMedications: () => invoke<MedicationSummary[]>("list_medications"),
   archiveMedication: (id: string, archived: boolean) => invoke<void>("archive_medication", { id, archived }),

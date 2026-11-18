@@ -66,6 +66,10 @@ pub struct RecordDose {
     /// Backdated local datetime "YYYY-MM-DDTHH:MM"; absent means now.
     pub occurred_local: Option<String>,
     pub note: Option<String>,
+    /// Only meaningful when `occurred_local` falls in an hour that happens twice (clocks going
+    /// back). `true` selects the second (later) occurrence; absent/false selects the earlier.
+    #[serde(default)]
+    pub second_occurrence: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +78,25 @@ pub struct CorrectDose {
     pub kind: Option<DoseKind>,
     pub occurred_local: Option<String>,
     pub note: Option<String>,
+    /// As `RecordDose::second_occurrence`. When `occurred_local` equals the entry's own current
+    /// local time and this is absent, the stored instant is kept untouched.
+    #[serde(default)]
+    pub second_occurrence: Option<bool>,
+}
+
+/// Position in History (newest first); pass the previous page's `next_cursor` as `before`.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct HistoryCursor {
+    pub occurred_at_utc_us: i64,
+    pub entered_at_utc_us: i64,
+    pub event_id: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct HistoryPage {
+    pub entries: Vec<HistoryEntry>,
+    /// Present when older entries exist.
+    pub next_cursor: Option<HistoryCursor>,
 }
 
 #[derive(Debug, Serialize, Clone)]

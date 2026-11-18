@@ -67,7 +67,7 @@ pub fn record(conn: &mut Connection, ctx: TimeCtx, input: RecordDose) -> AppResu
     // the DST gap/overlap rule); "now" uses the offset in force now.
     let (occurred, offset, local) = match &input.occurred_local {
         Some(s) => {
-            let r = ctx.resolve_local(s)?;
+            let r = ctx.resolve_local_choice(s, input.second_occurrence.unwrap_or(false))?;
             (r.utc_us, r.offset_seconds, r.local)
         }
         None => {
@@ -148,8 +148,9 @@ pub fn record(conn: &mut Connection, ctx: TimeCtx, input: RecordDose) -> AppResu
     Ok(id)
 }
 
-fn snapshot(kind: &str, local: &str, note: &Option<String>) -> String {
-    serde_json::json!({ "kind": kind, "occurred_local": local, "note": note }).to_string()
+fn snapshot(kind: &str, local: &str, offset: i32, note: &Option<String>) -> String {
+    // The offset disambiguates a repeated (fall-back) hour, where two instants share one wall time.
+    serde_json::json!({ "kind": kind, "occurred_local": local, "offset_seconds": offset, "note": note }).to_string()
 }
 
 pub fn correct(conn: &mut Connection, ctx: TimeCtx, input: CorrectDose) -> AppResult<()> {
@@ -169,14 +170,24 @@ pub fn correct(conn: &mut Connection, ctx: TimeCtx, input: CorrectDose) -> AppRe
     if undone == 1 {
         return invalid("This entry was undone. Restore it before editing.");
     }
-    let before = snapshot(&kind, &fmt_local(local_from_utc(occurred, offset)), &note);
+    let current_local = local_from_utc(occurred, offset);
+    let before = snapshot(&kind, &fmt_local(current_local), offset, &note);
     let new_kind = input.kind.map(|k| k.as_str().to_string()).unwrap_or(kind);
     // The corrected wall time is read in the event's own zone, using the offset in force on the
     // NEW date (a correction can move an entry across a DST change).
+    // If the submitted wall time is the entry's own stored wall time (and no explicit choice of
+    // occurrence is given) the stored instant is kept: in a repeated hour the wall time alone
+    // can't tell the two instants apart, and re-resolving would silently move a second-occurrence
+    // entry an hour earlier.
     let (new_occurred, new_offset) = match &input.occurred_local {
         Some(s) => {
-            let r = Zone::from_stored(zone_id.as_deref(), offset).resolve(parse_local(s)?)?;
-            (r.utc_us, r.offset_seconds)
+            let wall = parse_local(s)?;
+            if wall == current_local && input.second_occurrence.is_none() {
+                (occurred, offset)
+            } else {
+                let r = Zone::from_stored(zone_id.as_deref(), offset).resolve_choice(wall, input.second_occurrence.unwrap_or(false))?;
+                (r.utc_us, r.offset_seconds)
+            }
         }
         None => (occurred, offset),
     };
@@ -187,7 +198,7 @@ pub fn correct(conn: &mut Connection, ctx: TimeCtx, input: CorrectDose) -> AppRe
         Some(n) => clean_note(Some(n))?,
         None => note,
     };
-    let after = snapshot(&new_kind, &fmt_local(local_from_utc(new_occurred, new_offset)), &new_note);
+    let after = snapshot(&new_kind, &fmt_local(local_from_utc(new_occurred, new_offset)), new_offset, &new_note);
     if before == after {
         return invalid("Nothing was changed.");
     }
@@ -273,7 +284,9 @@ pub fn restore(conn: &mut Connection, ctx: TimeCtx, event_id: &str) -> AppResult
 /// * the note is erased and every earlier revision's before/after payload is erased (they carry
 ///   copies of the note and times);
 /// * the row stays as a tombstone (id, medication link, kind, timestamps, offsets) so history
-///   remains an honest ledger, with a final revision of reason 'delete' and no payload;
+///   remains an honest ledger, with a final revision of reason 'delete' and no payload. So what
+///   REMAINS is: that an entry existed, which medication, when, taken vs skipped, and that it
+///   was changed/deleted. What is ERASED is the note and the before/after contents of changes;
 /// * the tombstone never counts as a dose (it is also marked undone).
 /// `secure_delete` (see storage::configure) zeroes the freed bytes in the database file.
 pub fn delete_entry(conn: &mut Connection, ctx: TimeCtx, event_id: &str) -> AppResult<()> {
@@ -292,17 +305,37 @@ pub fn delete_entry(conn: &mut Connection, ctx: TimeCtx, event_id: &str) -> AppR
     Ok(())
 }
 
+/// Largest page a caller may request.
+pub const MAX_HISTORY_PAGE: u32 = 1000;
+pub const DEFAULT_HISTORY_PAGE: u32 = 100;
+
+/// First page of History (newest first). See `history_page`.
+#[cfg(test)]
 pub fn history(conn: &Connection, limit: u32) -> AppResult<Vec<HistoryEntry>> {
+    Ok(history_page(conn, Some(limit), None)?.entries)
+}
+
+/// One page of History, newest first by (occurred, entered, id). `before` is the previous page's
+/// `next_cursor`; the result's `next_cursor` is set exactly when older entries remain, so every
+/// entry (and so every deletable note) is reachable.
+pub fn history_page(conn: &Connection, limit: Option<u32>, before: Option<HistoryCursor>) -> AppResult<HistoryPage> {
+    let limit = limit.unwrap_or(DEFAULT_HISTORY_PAGE).clamp(1, MAX_HISTORY_PAGE);
+    let (b_occ, b_ent, b_id) = match &before {
+        Some(c) => (Some(c.occurred_at_utc_us), Some(c.entered_at_utc_us), Some(c.event_id.clone())),
+        None => (None, None, None),
+    };
     let mut stmt = conn.prepare(
         "SELECT e.id, e.medication_id, v.name, v.strength, e.kind, e.undone, e.deleted, e.occurred_at_utc, e.entered_at_utc,
                 e.original_local, e.original_offset_seconds, e.occurred_offset_seconds, e.original_zone_id, e.note,
                 (SELECT o.local_time FROM dose_event_occurrence l JOIN scheduled_occurrence o ON o.id=l.occurrence_id
                  WHERE l.dose_event_id=e.id LIMIT 1)
          FROM dose_event e JOIN medication_version v ON v.id = e.medication_version_id
-         ORDER BY e.occurred_at_utc DESC, e.entered_at_utc DESC LIMIT ?1",
+         WHERE (?2 IS NULL OR (e.occurred_at_utc, e.entered_at_utc, e.id) < (?2, ?3, ?4))
+         ORDER BY e.occurred_at_utc DESC, e.entered_at_utc DESC, e.id DESC LIMIT ?1",
     )?;
+    // One extra row tells us whether an older page exists.
     let mut rows = stmt
-        .query_map([limit.min(500)], |r| {
+        .query_map(params![limit + 1, b_occ, b_ent, b_id], |r| {
             let occurred: i64 = r.get(7)?;
             let current_offset: i32 = r.get(11)?;
             let deleted = r.get::<_, i64>(6)? == 1;
@@ -327,6 +360,17 @@ pub fn history(conn: &Connection, limit: u32) -> AppResult<Vec<HistoryEntry>> {
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
+    let more = rows.len() > limit as usize;
+    rows.truncate(limit as usize);
+    let next_cursor = if more {
+        rows.last().map(|e| HistoryCursor {
+            occurred_at_utc_us: e.occurred_at_utc_us,
+            entered_at_utc_us: e.entered_at_utc_us,
+            event_id: e.event_id.clone(),
+        })
+    } else {
+        None
+    };
     for e in &mut rows {
         let mut q = conn.prepare(
             "SELECT revision_number, changed_at_utc, reason, before_value, after_value FROM dose_event_revision
@@ -344,5 +388,5 @@ pub fn history(conn: &Connection, limit: u32) -> AppResult<Vec<HistoryEntry>> {
             })?
             .collect::<Result<_, _>>()?;
     }
-    Ok(rows)
+    Ok(HistoryPage { entries: rows, next_cursor })
 }

@@ -2,6 +2,7 @@ import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useEffect, useState } from "react";
 import { type Api, type MedicationSummary, errorMessage } from "../lib/api";
 import { formatTime, medLabel } from "../lib/format";
+import { InAppErasureNote, UpgradeCopyNote } from "./PrivacyNotes";
 import { Button, Field, Modal, inputClass } from "./ui";
 
 function AddDialog({ api, open, onOpenChange, onSaved }: { api: Api; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
@@ -44,7 +45,7 @@ function AddDialog({ api, open, onOpenChange, onSaved }: { api: Api; open: boole
   );
 }
 
-function DeleteDialog({ med, onConfirm }: { med: MedicationSummary; onConfirm: () => void }) {
+function DeleteDialog({ med, upgradeCopy, onConfirm }: { med: MedicationSummary; upgradeCopy: boolean; onConfirm: () => void }) {
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
@@ -54,8 +55,12 @@ function DeleteDialog({ med, onConfirm }: { med: MedicationSummary; onConfirm: (
         <AlertDialog.Overlay className="fixed inset-0 bg-black/40" />
         <AlertDialog.Content className="fixed inset-x-3 top-6 mx-auto max-w-md rounded-xl bg-white p-5 shadow-lg">
           <AlertDialog.Title className="text-xl font-semibold">Delete {med.name}?</AlertDialog.Title>
-          <AlertDialog.Description className="my-3">
-            This permanently removes the medication, its schedule, and every dose and correction recorded for it. It cannot be undone. To keep your history, archive it instead.
+          <AlertDialog.Description className="my-3 space-y-2">
+            <span className="block">
+              This permanently removes the medication, its schedule, and every dose and correction recorded for it from MedTracker. It cannot be undone. To keep your history, archive it instead.
+            </span>
+            <InAppErasureNote />
+            <UpgradeCopyNote show={upgradeCopy} />
           </AlertDialog.Description>
           <div className="flex gap-2">
             <AlertDialog.Cancel asChild><Button className="flex-1">Keep it</Button></AlertDialog.Cancel>
@@ -71,9 +76,15 @@ export function MedicationsView({ api, version, onChanged }: { api: Api; version
   const [meds, setMeds] = useState<MedicationSummary[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState("");
+  const [upgradeCopy, setUpgradeCopy] = useState(false);
 
   useEffect(() => {
+    let live = true;
     api.listMedications().then(setMeds, (e) => setMessage(errorMessage(e)));
+    api.upgradeCopyExists().then((v) => live && setUpgradeCopy(v), () => {});
+    return () => {
+      live = false;
+    };
   }, [api, version]);
 
   async function run(fn: () => Promise<void>) {
@@ -106,7 +117,7 @@ export function MedicationsView({ api, version, onChanged }: { api: Api; version
                 <Button onClick={() => run(() => api.archiveMedication(m.id, !m.archived))}>
                   {m.archived ? "Restore" : "Archive"}<span className="sr-only"> {m.name}</span>
                 </Button>
-                <DeleteDialog med={m} onConfirm={() => run(() => api.deleteMedication(m.id))} />
+                <DeleteDialog med={m} upgradeCopy={upgradeCopy} onConfirm={() => run(() => api.deleteMedication(m.id))} />
               </div>
             </li>
           ))}
