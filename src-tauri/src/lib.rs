@@ -5,6 +5,7 @@ mod commands;
 mod domain;
 mod dto;
 mod error;
+mod fsutil;
 mod notifications;
 mod reports;
 mod storage;

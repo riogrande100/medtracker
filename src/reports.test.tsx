@@ -56,10 +56,11 @@ describe("Reports", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("up to 400 days");
   });
 
-  it("is reachable from the app's tabs", async () => {
+  it("is reachable from More", async () => {
     const user = userEvent.setup();
     render(<App api={fakeApi()} />);
-    await user.click(await screen.findByRole("tab", { name: "Reports" }));
+    await user.click(await screen.findByRole("tab", { name: "More" }));
+    await user.click(screen.getByRole("button", { name: "Reports" }));
     expect(await screen.findByRole("table", { name: "Totals for the range" })).toBeInTheDocument();
   });
 });

@@ -212,7 +212,8 @@ export type BackupErrorKind =
   | "backup_unsupported_format"
   | "backup_newer_schema"
   | "backup_wrong_passphrase"
-  | "backup_corrupt";
+  | "backup_corrupt"
+  | "busy";
 
 export interface BackupFile {
   name: string;

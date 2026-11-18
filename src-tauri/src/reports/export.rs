@@ -1,10 +1,12 @@
 //! Plain CSV / JSON export of the dose-event ledger.
 //!
 //! Where files go: `commands::export_ledger` writes into the platform's Downloads folder
-//! (falling back to Documents, then to `<app data>/exports`), because a user-visible location
-//! needs no picker plugin and no extra capability, and the app stays offline-only. The file name
-//! is returned so the UI can say exactly where it went. Files are created exclusively (never
-//! overwrite) and no temporary files are written.
+//! (falling back to Documents), because a user-visible location needs no picker plugin and no
+//! extra capability, and the app stays offline-only. If that folder cannot be written to, the
+//! export goes to `<app data>/exports`. The file name is returned so the UI can say exactly where
+//! it went. Names are unique (millisecond + random suffix) and never overwrite. The content is
+//! written to a hidden temp file in the same folder, flushed, then renamed, so a failed write
+//! leaves no partial plaintext; the file is owner-only (0600) on Unix.
 //!
 //! Format: `schema_version` 1. Every export is PLAIN, unencrypted text. Notes are included only
 //! when the caller asks; otherwise the note column/field does not exist. Undone entries and
@@ -201,9 +203,27 @@ pub fn build(conn: &Connection, o: &ExportOptions, now_utc_us: i64) -> AppResult
     })
 }
 
-/// "medtracker-export-20260310-093000.csv" (UTC).
+/// "medtracker-export-20260310-091000-123-a1b2c3.csv": UTC date and time, the millisecond, and a
+/// random suffix, so two exports in the same second never share a name.
 pub fn file_name(now_utc_us: i64, ext: &str) -> String {
-    let t = rfc3339(now_utc_us);
-    let compact: String = t.chars().filter(|c| c.is_ascii_digit()).take(14).collect();
-    format!("medtracker-export-{}-{}.{ext}", &compact[..8.min(compact.len())], compact.get(8..).unwrap_or(""))
+    crate::fsutil::unique_name("medtracker-export", now_utc_us, ext)
+}
+
+/// Saves `content` as `name` in the first of `dirs` that accepts it (a folder is created if
+/// missing). The file is written to a hidden temp file, flushed, owner-only (Unix), then renamed
+/// into place, so a failed write never leaves a partial export; if the preferred folder cannot be
+/// written to, the next one is tried.
+pub fn save(dirs: &[std::path::PathBuf], name: &str, content: &[u8]) -> AppResult<std::path::PathBuf> {
+    let mut last = None;
+    for dir in dirs {
+        let r = std::fs::create_dir_all(dir).and_then(|_| crate::fsutil::save_atomic(dir, name, content));
+        match r {
+            Ok(p) => return Ok(p),
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(crate::error::AppError::Storage(format!(
+        "Couldn't save the export{}.",
+        last.map(|e| format!(" ({e})")).unwrap_or_default()
+    )))
 }

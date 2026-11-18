@@ -10,7 +10,8 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
   const styles = {
-    primary: "bg-blue-700 text-white hover:bg-blue-800",
+    // Primary follows the accent. Secondary (Cancel) and danger (Delete) keep fixed neutral/red styling.
+    primary: "bg-brand text-white hover:bg-brand-hover",
     secondary: "bg-white text-neutral-900 border border-neutral-400 hover:bg-neutral-100",
     danger: "bg-white text-red-800 border border-red-700 hover:bg-red-50",
   }[variant];

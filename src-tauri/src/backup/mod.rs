@@ -16,7 +16,15 @@
 //!      untouched original.
 //! * **Pre-restore copy** follows the existing snapshot lifecycle in `storage`: it is named so
 //!   `storage::purge_snapshots` owns it (kept for the rest of this launch, removed by the first
-//!   later clean launch and by a privacy deletion), and one copy is kept (replaced, never piled up).
+//!   later clean launch and by a privacy deletion). The FIRST restore of a launch writes the
+//!   original data to `...vrestore.bak` and that file is never overwritten again; later restores
+//!   in the same launch rotate through one more file (`...vrestore-later.bak`, replaced each time),
+//!   so at most two copies exist and the data from before the first restore stays recoverable.
+//! * **One at a time.** A process-wide guard ([`OpGuard`]) lets only one backup or restore run;
+//!   a second request gets the typed `busy` error instead of racing the first.
+//! * **Durability.** Files are written with `write_all` + `sync_all`, renamed into place, and the
+//!   containing folder is fsynced (Unix), so a power cut cannot leave a "restored" database that is
+//!   only in the page cache. Created files are owner-only (0600) on Unix.
 //! * **No key escrow.** The passphrase is never stored or sent anywhere. Forgotten means unrecoverable.
 //! * **Where the file goes.** No file-dialog plugin: it would add a dependency and capability
 //!   permissions to an app whose capability set is deliberately `core:default` with an empty network
@@ -31,11 +39,12 @@ pub mod format;
 mod tests;
 
 use crate::error::{AppError, AppResult};
+use crate::fsutil;
 use format::KdfParams;
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use zeroize::Zeroizing;
 
 pub const EXTENSION: &str = "medbackup";
@@ -96,6 +105,34 @@ fn io_err(what: &str, e: std::io::Error) -> AppError {
     AppError::Storage(format!("{what} ({e})."))
 }
 
+// ---- one operation at a time ----------------------------------------------------------------
+
+static BUSY: AtomicBool = AtomicBool::new(false);
+
+/// Held for the whole of a backup or restore; released on drop (also on panic or early return).
+pub struct OpGuard(&'static AtomicBool);
+
+impl OpGuard {
+    /// Takes the process-wide guard, or fails with the typed `busy` error.
+    pub fn acquire() -> AppResult<OpGuard> {
+        Self::acquire_flag(&BUSY)
+    }
+
+    fn acquire_flag(flag: &'static AtomicBool) -> AppResult<OpGuard> {
+        if flag.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+            Ok(OpGuard(flag))
+        } else {
+            Err(AppError::Busy("Another backup or restore is already running. Wait for it to finish, then try again.".into()))
+        }
+    }
+}
+
+impl Drop for OpGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
 pub fn validate_passphrase(p: &str) -> AppResult<()> {
     if p.chars().count() < MIN_PASSPHRASE_CHARS {
         return Err(AppError::Validation(format!("Use a passphrase of at least {MIN_PASSPHRASE_CHARS} characters.")));
@@ -114,6 +151,11 @@ fn sibling(live: &Path, suffix: &str) -> PathBuf {
 // `storage::purge_snapshots` (next clean launch, privacy deletion) sweep up any leftover.
 fn pre_restore_copy(live: &Path) -> PathBuf {
     sibling(live, ".pre-migration-vrestore.bak")
+}
+/// Where the safety copy of a SECOND (or later) restore in the same launch goes, so the first one
+/// (the data from before any restore) is never overwritten.
+fn pre_restore_copy_later(live: &Path) -> PathBuf {
+    sibling(live, ".pre-migration-vrestore-later.bak")
 }
 fn backup_scratch(live: &Path) -> PathBuf {
     sibling(live, ".pre-migration-vbackup.bak.tmp")
@@ -160,6 +202,24 @@ fn counts(conn: &Connection) -> Result<(i64, i64, i64), String> {
     Ok((n("SELECT count(*) FROM user_medication")?, n("SELECT count(*) FROM dose_event WHERE deleted = 0")?, n("SELECT count(*) FROM schedule")?))
 }
 
+/// Names of the tables and triggers the app's migrations create (what a healthy database of this
+/// version must contain), taken from a fresh in-memory database migrated the normal way.
+fn schema_objects(conn: &Connection) -> Result<std::collections::BTreeSet<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT type || ' ' || name FROM sqlite_master WHERE type IN ('table', 'trigger') AND name NOT LIKE 'sqlite_%'")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(0)).map_err(|e| e.to_string())?;
+    rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+}
+
+/// Required tables/triggers absent from `conn` (which must already be migrated to `migrations`).
+fn missing_schema_objects(conn: &Connection, migrations: &[&str]) -> Result<Vec<String>, String> {
+    let mut fresh = Connection::open_in_memory().map_err(|e| e.to_string())?;
+    crate::storage::migrations::migrate_with(&mut fresh, migrations).map_err(|e| format!("{e:?}"))?;
+    let have = schema_objects(conn)?;
+    Ok(schema_objects(&fresh)?.into_iter().filter(|o| !have.contains(o)).collect())
+}
+
 // ---- create ---------------------------------------------------------------------------------
 
 /// Counts for the manifest come from the snapshot, so they describe exactly what is backed up.
@@ -169,6 +229,7 @@ fn snapshot_bytes(conn: &Connection, live: &Path) -> AppResult<(Zeroizing<Vec<u8
     let result = (|| -> AppResult<(Zeroizing<Vec<u8>>, u32, (i64, i64, i64))> {
         conn.execute("VACUUM INTO ?1", [scratch.to_string_lossy().as_ref()])
             .map_err(|e| AppError::Storage(format!("Could not make a consistent copy of your data to back up ({e}). Nothing was changed.")))?;
+        restrict_permissions(&scratch);
         let snap = Connection::open_with_flags(&scratch, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e| AppError::Storage(e.to_string()))?;
         verify_health(&snap).map_err(|d| AppError::CorruptDatabase(format!("Your data failed its health check ({d}), so no backup was made. Nothing was changed.")))?;
         let version = user_version(&snap).map_err(AppError::Storage)?;
@@ -180,6 +241,17 @@ fn snapshot_bytes(conn: &Connection, live: &Path) -> AppResult<(Zeroizing<Vec<u8
     // The scratch copy is plaintext: it never outlives this call, success or not.
     remove_with_sidecars(&scratch);
     result
+}
+
+/// Best effort: a plaintext copy made by SQLite should be readable by the owner only (Unix).
+fn restrict_permissions(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }
 
 fn unique_path(dir: &Path, file_name: &str) -> PathBuf {
@@ -196,6 +268,7 @@ fn unique_path(dir: &Path, file_name: &str) -> PathBuf {
 
 /// Makes an encrypted backup of the database behind `conn` (whose file is `live`) in `dest_dir`.
 /// On any failure nothing is left behind and the live database is unchanged.
+#[cfg(test)]
 pub fn create_backup(
     conn: &Connection,
     live: &Path,
@@ -205,8 +278,22 @@ pub fn create_backup(
     now_utc_us: i64,
     kdf: KdfParams,
 ) -> AppResult<BackupCreated> {
+    create_backup_in(conn, live, std::slice::from_ref(&dest_dir.to_path_buf()), file_name, passphrase, now_utc_us, kdf)
+}
+
+/// Like [`create_backup`], but tries each folder of `dest_dirs` in order until one accepts the
+/// file (the preferred folder first, then a fallback). Only a failure to write moves on to the
+/// next folder; the encryption work is done once.
+pub fn create_backup_in(
+    conn: &Connection,
+    live: &Path,
+    dest_dirs: &[PathBuf],
+    file_name: &str,
+    passphrase: &str,
+    now_utc_us: i64,
+    kdf: KdfParams,
+) -> AppResult<BackupCreated> {
     validate_passphrase(passphrase)?;
-    std::fs::create_dir_all(dest_dir).map_err(|e| io_err("Could not create the backup folder", e))?;
 
     let (db, schema, (medications, doses, schedules)) = snapshot_bytes(conn, live)?;
     let manifest = Manifest {
@@ -227,21 +314,27 @@ pub fn create_backup(
 
     let sealed = format::seal(&plain, passphrase, schema, kdf)?;
 
-    let dest = unique_path(dest_dir, file_name);
-    let mut partial = dest.as_os_str().to_owned();
-    partial.push(".partial");
-    let partial = PathBuf::from(partial);
-    let written = (|| -> AppResult<()> {
-        let mut f = std::fs::File::create(&partial).map_err(|e| io_err("Could not write the backup file", e))?;
-        f.write_all(&sealed).map_err(|e| io_err("Could not write the backup file (is the disk full?)", e))?;
-        f.sync_all().map_err(|e| io_err("Could not finish writing the backup file", e))?;
-        drop(f);
-        std::fs::rename(&partial, &dest).map_err(|e| io_err("Could not save the backup file", e))
-    })();
-    if let Err(e) = written {
-        let _ = std::fs::remove_file(&partial);
-        return Err(e);
+    // The temp file is hidden, owner-only and flushed before the rename; the folder is flushed
+    // after it. A failure removes the temp file, so no partial backup is ever left.
+    let mut last_err = AppError::Storage("No folder is available for the backup.".into());
+    let mut saved = None;
+    for dir in dest_dirs {
+        let attempt = std::fs::create_dir_all(dir)
+            .map_err(|e| io_err("Could not create the backup folder", e))
+            .and_then(|_| {
+                let dest = unique_path(dir, file_name);
+                let name = dest.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| file_name.to_string());
+                fsutil::save_atomic(dir, &name, &sealed).map_err(|e| io_err("Could not write the backup file (is the disk full?)", e))
+            });
+        match attempt {
+            Ok(p) => {
+                saved = Some(p);
+                break;
+            }
+            Err(e) => last_err = e,
+        }
     }
+    let Some(dest) = saved else { return Err(last_err) };
 
     // Read it back from disk and open it with the passphrase: a backup that cannot be opened is
     // worse than none, because it looks safe.
@@ -359,7 +452,7 @@ pub fn prepare_restore(live: &Path, backup_file: &Path, passphrase: &str, migrat
         schedules: 0,
     };
     // From here on, any early return drops `staged`, which deletes the staging file.
-    std::fs::write(&staging, db).map_err(|e| io_err("Could not prepare the backup for checking (is the disk full?). Your data was not changed", e))?;
+    fsutil::write_synced(&staging, db).map_err(|e| io_err("Could not prepare the backup for checking (is the disk full?). Your data was not changed", e))?;
     drop(plain);
 
     {
@@ -393,6 +486,10 @@ pub fn prepare_restore(live: &Path, backup_file: &Path, passphrase: &str, migrat
     let conn = opened.conn;
     let finish = (|| -> Result<(i64, i64, i64), String> {
         verify_health(&conn)?;
+        let missing = missing_schema_objects(&conn, migrations)?;
+        if !missing.is_empty() {
+            return Err(format!("required tables or triggers are missing: {}", missing.join(", ")));
+        }
         // Leave a single self-contained file: no journal or WAL beside it when it is renamed.
         conn.query_row("PRAGMA journal_mode = DELETE", [], |r| r.get::<_, String>(0)).map_err(|e| e.to_string())?;
         counts(&conn)
@@ -400,6 +497,9 @@ pub fn prepare_restore(live: &Path, backup_file: &Path, passphrase: &str, migrat
     drop(conn);
     crate::storage::purge_snapshots(&staging, None);
     let (m, d, s) = finish.map_err(|e| bad_data(&e))?;
+    // SQLite wrote to the staging file during migration; make the finished file durable before it
+    // can be renamed over the live database.
+    fsutil::sync_file(&staging).map_err(|e| io_err("Could not finish preparing the backup. Your data was not changed", e))?;
     staged.upgraded_from = (header.app_schema_version != supported).then_some(header.app_schema_version);
     staged.medications = m;
     staged.doses = d;
@@ -409,20 +509,26 @@ pub fn prepare_restore(live: &Path, backup_file: &Path, passphrase: &str, migrat
 
 // ---- restore: phase 2, swap -----------------------------------------------------------------
 
-/// Takes a verified copy of the live data under the pre-restore name, replacing any earlier one.
+/// Takes a verified copy of the live data. The first one of a launch goes under the pre-restore
+/// name and is never replaced; later ones go under the "later" name, replacing only that.
 fn pre_restore_snapshot(conn: &Connection, live: &Path) -> AppResult<()> {
     let fail = |e: String| AppError::Storage(format!("Could not make a safety copy of your current data first ({e}). Nothing was changed."));
-    let dest = pre_restore_copy(live);
+    let first = pre_restore_copy(live);
+    let dest = if first.exists() { pre_restore_copy_later(live) } else { first };
     let mut tmp = dest.as_os_str().to_owned();
     tmp.push(".tmp");
     let tmp = PathBuf::from(tmp);
     remove_with_sidecars(&tmp);
     let made = (|| -> Result<(), String> {
         conn.execute("VACUUM INTO ?1", [tmp.to_string_lossy().as_ref()]).map_err(|e| e.to_string())?;
+        restrict_permissions(&tmp);
         let c = Connection::open_with_flags(&tmp, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e| e.to_string())?;
         verify_health(&c)?;
         drop(c);
-        std::fs::rename(&tmp, &dest).map_err(|e| e.to_string())
+        fsutil::sync_file(&tmp).map_err(|e| e.to_string())?;
+        std::fs::rename(&tmp, &dest).map_err(|e| e.to_string())?;
+        let _ = fsutil::sync_dir(fsutil::parent_of(&dest));
+        Ok(())
     })();
     made.map_err(|e| {
         remove_with_sidecars(&tmp);
@@ -466,6 +572,9 @@ pub fn commit_restore_with(
         return (reopened, Err(io_err("Could not put the restored data in place. Your data was not changed", e)));
     }
     staged.keep = true; // the staging name no longer exists; the file is now the live database
+    // Make the rename itself durable (Unix: fsync the folder). The file's contents were flushed
+    // when it was staged.
+    let _ = fsutil::sync_dir(fsutil::parent_of(live));
     let result = RestoreResult {
         backup_created_at_utc_us: staged.manifest.created_at_utc_us,
         medications: staged.medications,

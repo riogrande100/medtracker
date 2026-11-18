@@ -215,7 +215,9 @@ fn json_without_notes_has_no_note_key_and_range_filters() {
 
 #[test]
 fn file_name_is_stable() {
-    assert_eq!(export::file_name(1_773_133_800_000_000, "csv"), "medtracker-export-20260310-091000.csv");
+    let n = export::file_name(1_773_133_800_042_000, "csv");
+    assert!(n.starts_with("medtracker-export-20260310-091000-042-") && n.ends_with(".csv"), "{n}");
+    assert_ne!(n, export::file_name(1_773_133_800_042_000, "csv"), "same millisecond, different name");
 }
 
 #[test]
@@ -224,4 +226,27 @@ fn bad_ranges_are_rejected() {
     assert!(query::report(&c, &at("2026-03-10T12:00"), "2026-03-10", "2026-03-07").is_err());
     assert!(query::report(&c, &at("2026-03-10T12:00"), "2025-01-01", "2026-03-10").is_err());
     assert!(query::report(&c, &at("2026-03-10T12:00"), "nope", "2026-03-10").is_err());
+}
+
+#[test]
+fn save_falls_back_when_the_preferred_folder_cannot_be_written() {
+    let base = std::env::temp_dir().join(format!("medtracker-exp-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&base).unwrap();
+    let blocker = base.join("a-file");
+    std::fs::write(&blocker, b"x").unwrap();
+    let bad = blocker.join("sub"); // a folder cannot be created under a regular file
+    let good = base.join("exports");
+    let p = export::save(&[bad.clone(), good.clone()], "e.csv", b"a,b\r\n").unwrap();
+    assert_eq!(p, good.join("e.csv"));
+    assert_eq!(std::fs::read(&p).unwrap(), b"a,b\r\n");
+    let left: Vec<_> = std::fs::read_dir(&good).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+    assert_eq!(left, ["e.csv"], "no temp or partial file left");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+    // Nowhere to write at all: a clear error, nothing created.
+    assert!(export::save(&[bad], "e.csv", b"x").is_err());
+    std::fs::remove_dir_all(base).unwrap();
 }

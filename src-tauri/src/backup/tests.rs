@@ -1,5 +1,6 @@
 use super::format::{self, KdfParams, HEADER_LEN};
 use super::*;
+use std::sync::atomic::{AtomicBool, Ordering};
 use crate::application::{ledger, medication};
 use crate::clock::TimeCtx;
 use crate::dto::{DoseKind, NewMedication, RecordDose};
@@ -147,20 +148,37 @@ fn round_trip_restores_data_and_keeps_a_pre_restore_copy() {
 }
 
 #[test]
-fn a_second_restore_replaces_the_pre_restore_copy_instead_of_piling_up() {
+fn later_restores_keep_the_first_safety_copy_and_rotate_one_more() {
     let env = Env::new("two");
     let a = env.db("a");
     let conn_a = live_with_data(&a, "Metformin", SECRET);
-    let file = make_backup(&env, &conn_a, &a);
+    let file_a = make_backup(&env, &conn_a, &a);
+    let c = env.db("c");
+    let conn_c = live_with_data(&c, "Atorvastatin", "third");
+    let file_c = create_backup(&conn_c, &c, &env.backups(), "c.medbackup", PASS, NOW, FAST).map(|m| PathBuf::from(m.path)).unwrap();
+
+    // The device's ORIGINAL data is Lisinopril; restore A (Metformin), then C (Atorvastatin), then A again.
     let b = env.db("b");
-    let mut conn = live_with_data(&b, "Lisinopril", "x");
-    for _ in 0..2 {
-        let staged = prepare_restore(&b, &file, PASS, MIGRATIONS).unwrap();
-        let (c, r) = commit_restore(&b, conn, staged);
-        r.unwrap();
-        conn = c.unwrap();
+    let mut conn = live_with_data(&b, "Lisinopril", "original");
+    for f in [&file_a, &file_c, &file_a] {
+        let staged = prepare_restore(&b, f, PASS, MIGRATIONS).unwrap();
+        let (new_conn, r) = commit_restore(&b, conn, staged);
+        assert!(r.unwrap().safety_copy_kept);
+        conn = new_conn.unwrap();
     }
-    assert_eq!(storage::snapshot_files(&b).len(), 1);
+    assert_eq!(med_names(&conn), ["Metformin"]);
+
+    let copies = storage::snapshot_files(&b);
+    assert_eq!(copies.len(), 2, "never more than two safety copies: {copies:?}");
+    let first = Connection::open(pre_restore_copy(&b)).unwrap();
+    assert_eq!(med_names(&first), ["Lisinopril"], "the original data is still recoverable");
+    assert_eq!(note_of(&first).as_deref(), Some("original"));
+    let later = Connection::open(pre_restore_copy_later(&b)).unwrap();
+    assert_eq!(med_names(&later), ["Atorvastatin"], "the later copy holds the most recent pre-restore data");
+    drop((first, later));
+
+    storage::purge_snapshots(&b, None); // next clean launch / privacy deletion removes both
+    assert_eq!(names(b.parent().unwrap()), ["user-data.sqlite"]);
 }
 
 #[test]
@@ -460,31 +478,155 @@ fn a_damaged_database_inside_a_valid_backup_is_corrupt() {
     assert!(is(&e, "backup_corrupt"), "{e:?}");
 }
 
+/// Rewrites the KDF fields of a backup header (and its CRC, so only the bounds check can object).
+fn set_kdf(file: &Path, m_kib: u32, t: u32, p: u32) {
+    let mut bytes = std::fs::read(file).unwrap();
+    bytes[15..19].copy_from_slice(&m_kib.to_be_bytes());
+    bytes[19..23].copy_from_slice(&t.to_be_bytes());
+    bytes[23..27].copy_from_slice(&p.to_be_bytes());
+    let mut c = 0xFFFF_FFFFu32;
+    for &b in &bytes[..91] {
+        c ^= b as u32;
+        for _ in 0..8 {
+            c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 };
+        }
+    }
+    bytes[91..95].copy_from_slice(&(!c).to_be_bytes());
+    std::fs::write(file, &bytes).unwrap();
+}
+
 #[test]
 fn hostile_kdf_settings_are_refused_without_allocating() {
     let env = Env::new("kdf");
     let a = env.db("a");
     let conn = live_with_data(&a, "Metformin", SECRET);
-    let file = make_backup(&env, &conn, &a);
-    let mut bytes = std::fs::read(&file).unwrap();
-    bytes[15..19].copy_from_slice(&u32::MAX.to_be_bytes()); // 4 TiB of Argon2 memory
-    let crc = {
-        // recompute the header CRC so only the bounds check can catch this
-        let mut c = 0xFFFF_FFFFu32;
-        for &b in &bytes[..91] {
-            c ^= b as u32;
-            for _ in 0..8 {
-                c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 };
-            }
-        }
-        !c
-    };
-    bytes[91..95].copy_from_slice(&crc.to_be_bytes());
-    std::fs::write(&file, &bytes).unwrap();
     let b = env.db("b");
     let _live = live_with_data(&b, "Lisinopril", "x");
+    // (memory KiB, passes, lanes): 4 TiB; just over 128 MiB; 7 passes; 5 lanes; zero; memory below 8 KiB per lane.
+    for (m, t, p) in [(u32::MAX, 1, 1), (128 * 1024 + 1, 1, 1), (8, 7, 1), (8, 1, 5), (8, 0, 1), (8, 1, 0), (7, 1, 1), (u32::MAX, u32::MAX, u32::MAX)] {
+        let file = make_backup(&env, &conn, &a);
+        set_kdf(&file, m, t, p);
+        let e = restore_must_fail(&b, &file, PASS, MIGRATIONS);
+        assert!(is(&e, "backup_corrupt"), "{m}/{t}/{p}: {e:?}");
+        std::fs::remove_file(&file).unwrap();
+    }
+}
+
+#[test]
+fn kdf_bounds_admit_the_default_and_the_ceiling_and_seal_refuses_beyond_it() {
+    assert!(format::DEFAULT_KDF.in_bounds());
+    assert!(KdfParams { m_kib: 128 * 1024, t: 6, p: 4 }.in_bounds());
+    assert!(!KdfParams { m_kib: 128 * 1024 + 1, t: 6, p: 4 }.in_bounds());
+    // Derivation itself re-checks, so an out-of-range request never reaches the allocator.
+    let e = format::seal(b"x", PASS, 1, KdfParams { m_kib: u32::MAX, t: 3, p: 1 }).unwrap_err();
+    assert!(is(&e, "backup_corrupt"), "{e:?}");
+}
+
+#[test]
+fn nfc_and_nfd_forms_of_a_passphrase_open_the_same_backup() {
+    let env = Env::new("nfc");
+    let a = env.db("a");
+    let conn = live_with_data(&a, "Metformin", SECRET);
+    let nfc = "caf\u{e9}-pass\u{e4}-w\u{f6}rd"; // precomposed
+    let nfd = "cafe\u{301}-pass\u{61}\u{308}-wo\u{308}rd"; // letter + combining mark
+    assert_ne!(nfc, nfd);
+    let b = env.db("b");
+    for (make, open) in [(nfc, nfd), (nfd, nfc)] {
+        let file = create_backup(&conn, &a, &env.backups(), "n.medbackup", make, NOW, FAST).map(|m| PathBuf::from(m.path)).unwrap();
+        let live = live_with_data(&b, "Lisinopril", "x");
+        let staged = prepare_restore(&b, &file, open, MIGRATIONS).unwrap();
+        let (conn2, r) = commit_restore(&b, live, staged);
+        r.unwrap();
+        assert_eq!(med_names(&conn2.unwrap()), ["Metformin"]);
+        std::fs::remove_file(&file).unwrap();
+        for f in std::fs::read_dir(b.parent().unwrap()).unwrap() {
+            std::fs::remove_file(f.unwrap().path()).unwrap();
+        }
+    }
+    // A genuinely different passphrase still fails, and nothing else (case, spaces) is folded.
+    let file = make_backup(&env, &conn, &a);
+    let _live = live_with_data(&b, "Lisinopril", "x");
+    let e = restore_must_fail(&b, &file, &PASS.to_uppercase(), MIGRATIONS);
+    assert!(is(&e, "backup_wrong_passphrase"), "{e:?}");
+    let e = restore_must_fail(&b, &file, &format!("{PASS} "), MIGRATIONS);
+    assert!(is(&e, "backup_wrong_passphrase"), "{e:?}");
+}
+
+#[test]
+fn only_one_backup_or_restore_may_run_at_a_time() {
+    static FLAG: AtomicBool = AtomicBool::new(false);
+    let first = OpGuard::acquire_flag(&FLAG).unwrap();
+    let e = OpGuard::acquire_flag(&FLAG).err().expect("second is refused");
+    assert!(is(&e, "busy"), "{e:?}");
+    drop(first);
+    let again = OpGuard::acquire_flag(&FLAG).expect("released on drop");
+    drop(again);
+    assert!(!FLAG.load(Ordering::SeqCst));
+}
+
+#[test]
+fn a_restored_database_missing_a_required_trigger_or_table_is_refused() {
+    let env = Env::new("schema");
+    let a = env.db("a");
+    let conn = live_with_data(&a, "Metformin", SECRET);
+    let trigger: String = conn.query_row("SELECT name FROM sqlite_master WHERE type = 'trigger' LIMIT 1", [], |r| r.get(0)).unwrap();
+    let b = env.db("b");
+    let _live = live_with_data(&b, "Lisinopril", "x");
+
+    conn.execute_batch(&format!("DROP TRIGGER {trigger}")).unwrap();
+    let file = make_backup(&env, &conn, &a);
     let e = restore_must_fail(&b, &file, PASS, MIGRATIONS);
     assert!(is(&e, "backup_corrupt"), "{e:?}");
+    assert!(format!("{e:?}").contains(&trigger), "{e:?}");
+    std::fs::remove_file(&file).unwrap();
+
+    // A table with nothing pointing at it.
+    let a2 = env.db("a2");
+    let conn2 = live_with_data(&a2, "Metformin", SECRET);
+    conn2.execute_batch("DROP TABLE app_meta").unwrap();
+    let file2 = make_backup(&env, &conn2, &a2);
+    let e = restore_must_fail(&b, &file2, PASS, MIGRATIONS);
+    assert!(is(&e, "backup_corrupt"), "{e:?}");
+    assert!(format!("{e:?}").contains("app_meta"), "{e:?}");
+}
+
+#[test]
+fn backup_falls_back_to_the_next_folder_and_files_are_private_and_complete() {
+    let env = Env::new("fallback");
+    let a = env.db("a");
+    let conn = live_with_data(&a, "Metformin", SECRET);
+    let blocker = env.dir.join("a-file");
+    std::fs::write(&blocker, b"x").unwrap();
+    let dirs = [blocker.join("MedTracker Backups"), env.backups()];
+    let made = create_backup_in(&conn, &a, &dirs, "f.medbackup", PASS, NOW, FAST).unwrap();
+    assert!(Path::new(&made.path).starts_with(env.backups()), "{}", made.path);
+    assert_eq!(names(&env.backups()), ["f.medbackup"], "no partial or temp file left");
+    assert_eq!(std::fs::metadata(&made.path).unwrap().len(), made.size_bytes);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&made.path).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+    // Nowhere writable: a typed storage error and no leftovers.
+    let e = create_backup_in(&conn, &a, &[blocker.join("x")], "g.medbackup", PASS, NOW, FAST).unwrap_err();
+    assert!(is(&e, "storage"), "{e:?}");
+    assert_eq!(names(&env.backups()), ["f.medbackup"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn staged_restore_file_is_private_while_it_waits() {
+    use std::os::unix::fs::PermissionsExt;
+    let env = Env::new("perm");
+    let a = env.db("a");
+    let conn_a = live_with_data(&a, "Metformin", SECRET);
+    let file = make_backup(&env, &conn_a, &a);
+    let b = env.db("b");
+    let _live = live_with_data(&b, "Lisinopril", "x");
+    let staged = prepare_restore(&b, &file, PASS, MIGRATIONS).unwrap();
+    assert_eq!(std::fs::metadata(staging_path(&b)).unwrap().permissions().mode() & 0o777, 0o600);
+    drop(staged);
+    assert!(!staging_path(&b).exists());
 }
 
 #[test]

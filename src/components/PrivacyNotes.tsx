@@ -4,7 +4,9 @@
 export function InAppErasureNote() {
   return (
     <span className="block text-sm text-neutral-700">
-      Deleting happens inside MedTracker. It can't reach copies outside the app, such as device or cloud backups.
+      Deleting happens inside MedTracker. It can't reach copies outside the app, such as device or cloud backups. Backup
+      (.medbackup) and export files saved in Documents or Downloads are also outside MedTracker's control, and deleting an entry
+      in the app does not delete them.
     </span>
   );
 }

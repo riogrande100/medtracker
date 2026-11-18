@@ -29,6 +29,8 @@ pub enum AppError {
     BackupWrongPassphrase(String),
     /// The passphrase was right but the contents were changed or damaged, or are not a healthy database.
     BackupCorrupt(String),
+    /// Another backup or restore is already running; try again when it has finished.
+    Busy(String),
 }
 
 impl From<rusqlite::Error> for AppError {

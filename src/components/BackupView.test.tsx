@@ -144,11 +144,12 @@ describe("Restore", () => {
   });
 });
 
-describe("Backup tab", () => {
-  it("is reachable from the main navigation", async () => {
+describe("Backup screen", () => {
+  it("is reachable from More", async () => {
     const user = userEvent.setup();
     render(<App api={fakeApi()} />);
-    await user.click(await screen.findByRole("tab", { name: "Backup" }));
+    await user.click(await screen.findByRole("tab", { name: "More" }));
+    await user.click(screen.getByRole("button", { name: "Backup" }));
     expect(await screen.findByRole("heading", { name: "Create a backup" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Restore from a backup" })).toBeInTheDocument();
   });

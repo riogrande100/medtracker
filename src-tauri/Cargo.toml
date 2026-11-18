@@ -22,6 +22,9 @@ jiff = { version = "1", default-features = false, features = ["std", "tzdb-bundl
 iana-time-zone = "0.1"
 jiff-tzdb = "1"
 # Encrypted backups (B2-09): RustCrypto password KDF + AEAD, pure Rust, no network, no custom crypto.
-argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
+# (chacha20poly1305 has no zeroize feature of its own; its chacha20 core already wipes key material.)
+argon2 = { version = "0.5", default-features = false, features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc", "getrandom"] }
 zeroize = "1"
+# Passphrases are compared by meaning, not by byte layout: NFC-normalize before the KDF.
+unicode-normalization = "0.1"

@@ -22,12 +22,16 @@
 //! damaged. The CRC separates accidental header damage from a wrong passphrase, because a flipped
 //! salt byte would otherwise look like a mistyped passphrase.
 //!
+//! The passphrase is NFC-normalized before it reaches Argon2. KDF settings are bounded (see
+//! `MAX_M_KIB`, `MAX_PASSES`, `MAX_LANES`) both when a header is read and before key derivation.
+//!
 //! All cryptography is RustCrypto (`argon2`, `chacha20poly1305`); nothing here is a new primitive.
 
 use crate::error::{AppError, AppResult};
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{rand_core::RngCore, Aead, KeyInit, OsRng, Payload};
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
+use unicode_normalization::UnicodeNormalization;
 use zeroize::Zeroizing;
 
 pub const MAGIC: [u8; 8] = *b"MEDTRBAK";
@@ -47,6 +51,13 @@ pub struct KdfParams {
     pub p: u32,
 }
 
+/// Ceilings for KDF settings read from a file (and checked again before any key derivation, so
+/// nothing is allocated for an out-of-range request): 128 MiB, 6 passes, 4 lanes. The default is
+/// well inside them.
+pub const MAX_M_KIB: u32 = 128 * 1024;
+pub const MAX_PASSES: u32 = 6;
+pub const MAX_LANES: u32 = 4;
+
 /// Argon2id, 64 MiB, 3 passes, 1 lane: the OWASP-recommended class of setting, still about a
 /// second on a phone. Stored in every header, so it can be raised later without breaking old files.
 pub const DEFAULT_KDF: KdfParams = KdfParams { m_kib: 64 * 1024, t: 3, p: 1 };
@@ -54,8 +65,8 @@ pub const DEFAULT_KDF: KdfParams = KdfParams { m_kib: 64 * 1024, t: 3, p: 1 };
 impl KdfParams {
     /// Limits applied to a header read from a file: low enough that a crafted file cannot make the
     /// app allocate gigabytes, never below Argon2's own minimums.
-    fn in_bounds(&self) -> bool {
-        (1..=16).contains(&self.p) && self.m_kib >= 8 * self.p && self.m_kib <= 512 * 1024 && (1..=16).contains(&self.t)
+    pub(crate) fn in_bounds(&self) -> bool {
+        (1..=MAX_LANES).contains(&self.p) && self.m_kib >= 8 * self.p && self.m_kib <= MAX_M_KIB && (1..=MAX_PASSES).contains(&self.t)
     }
 }
 
@@ -106,11 +117,18 @@ fn be32(b: &[u8]) -> u32 {
 }
 
 fn derive_key(passphrase: &str, salt: &[u8; 16], kdf: KdfParams) -> AppResult<Zeroizing<[u8; 32]>> {
+    if !kdf.in_bounds() {
+        return Err(AppError::BackupCorrupt("The backup's encryption settings are outside safe limits, so it was not opened. Nothing was changed.".into()));
+    }
+    // The same passphrase typed on two keyboards can differ in bytes (an accented letter as one
+    // character or as letter + combining mark). NFC makes both open the same backup. Nothing else
+    // is changed: no trimming, no case folding.
+    let normalized: Zeroizing<String> = Zeroizing::new(passphrase.nfc().collect());
     let params = Params::new(kdf.m_kib, kdf.t, kdf.p, Some(32))
         .map_err(|e| AppError::BackupCorrupt(format!("The backup's encryption settings are not valid ({e}).")))?;
     let mut key = Zeroizing::new([0u8; 32]);
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
-        .hash_password_into(passphrase.as_bytes(), salt, key.as_mut())
+        .hash_password_into(normalized.as_bytes(), salt, key.as_mut())
         .map_err(|e| AppError::Storage(format!("Could not derive the encryption key ({e}).")))?;
     Ok(key)
 }

@@ -1,14 +1,15 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { useEffect, useState } from "react";
 import { type Api, type AppError, RECOVERABLE_KINDS, errorKind } from "./lib/api";
-import { BackupView } from "./components/BackupView";
+import { type UiPrefs, applyUiPrefs, loadUiPrefs, saveUiPrefs } from "./lib/uiPrefs";
 import { HistoryView } from "./components/HistoryView";
 import { MedicationsView } from "./components/MedicationsView";
-import { ReportsView } from "./components/ReportsView";
+import { MoreView } from "./components/MoreView";
 import { TodayView } from "./components/TodayView";
 
+// min-h-12 (48px) keeps every tab target above the 44px minimum; text-sm and px-1 let four tabs fit at 375px.
 const tab =
-  "min-h-14 flex-1 px-2 text-base font-medium text-neutral-700 data-[state=active]:border-b-4 data-[state=active]:border-blue-700 data-[state=active]:text-neutral-900 cursor-pointer";
+  "min-h-12 min-w-0 cursor-pointer px-1 text-sm font-medium text-neutral-700 data-[state=active]:border-b-4 data-[state=active]:border-brand data-[state=active]:text-neutral-900";
 
 /**
  * Shown when the data file could not be opened safely (newer version, corrupt, failed upgrade).
@@ -35,6 +36,17 @@ function RecoveryScreen({ error }: { error: AppError }) {
 export function App({ api }: { api: Api }) {
   const [version, setVersion] = useState(0);
   const [startup, setStartup] = useState<"checking" | "ok" | AppError>("checking");
+  const [prefs, setPrefsState] = useState<UiPrefs>(() => loadUiPrefs());
+  const [prefsSaved, setPrefsSaved] = useState(true);
+
+  useEffect(() => {
+    applyUiPrefs(prefs);
+  }, [prefs]);
+
+  function setPrefs(next: UiPrefs) {
+    setPrefsState(next);
+    setPrefsSaved(saveUiPrefs(next));
+  }
 
   useEffect(() => {
     api.startupStatus().then(
@@ -52,19 +64,26 @@ export function App({ api }: { api: Api }) {
   return (
     <Tabs.Root defaultValue="today" className="mx-auto flex min-h-screen max-w-xl flex-col">
       <header className="px-4 pt-4"><h1 className="text-sm font-medium text-neutral-700">MedTracker · stored only on this device</h1></header>
-      <Tabs.List aria-label="Sections" className="flex border-b border-neutral-300 bg-neutral-50">
+      <Tabs.List aria-label="Sections" className="grid grid-cols-4 border-b border-neutral-300 bg-neutral-50">
         <Tabs.Trigger value="today" className={tab}>Today</Tabs.Trigger>
         <Tabs.Trigger value="history" className={tab}>History</Tabs.Trigger>
         <Tabs.Trigger value="medications" className={tab}>Medications</Tabs.Trigger>
-        <Tabs.Trigger value="backup" className={tab}>Backup</Tabs.Trigger>
-        <Tabs.Trigger value="reports" className={tab}>Reports</Tabs.Trigger>
+        <Tabs.Trigger value="more" className={tab}>More</Tabs.Trigger>
       </Tabs.List>
       <main className="flex-1 p-4">
         <Tabs.Content value="today"><TodayView {...props} /></Tabs.Content>
         <Tabs.Content value="history"><HistoryView {...props} /></Tabs.Content>
         <Tabs.Content value="medications"><MedicationsView {...props} /></Tabs.Content>
-        <Tabs.Content value="backup"><BackupView api={api} onChanged={changed} /></Tabs.Content>
-        <Tabs.Content value="reports"><ReportsView api={api} version={version} /></Tabs.Content>
+        <Tabs.Content value="more">
+          <MoreView
+            api={api}
+            version={version}
+            onChanged={changed}
+            prefs={prefs}
+            onPrefsChange={setPrefs}
+            prefsSaved={prefsSaved}
+          />
+        </Tabs.Content>
       </main>
     </Tabs.Root>
   );

@@ -7,10 +7,46 @@
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 }
 
+/* Accent tokens. applyUiPrefs() (src/lib/uiPrefs.ts) overwrites these on <html>; the values here are the Blue default. */
+:root {
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --accent-soft: #eff6ff;
+  --accent-ink: #1e40af;
+}
+
+@theme inline {
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-soft: var(--accent-soft);
+  --color-brand-ink: var(--accent-ink);
+}
+
 body {
   @apply bg-neutral-50 text-neutral-900 font-sans antialiased;
 }
 
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-blue-700;
+  @apply outline-2 outline-offset-2 outline-brand;
+}
+
+/* Reduce motion: explicit "Reduce motion" choice, or "Follow my device setting" with the OS preference on. */
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="allow"]) *,
+  :root:not([data-motion="allow"]) *::before,
+  :root:not([data-motion="allow"]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -62,7 +62,7 @@ function CreateSection({ api, folder, onCreated }: { api: Api; folder: string; o
       <Button variant="primary" className="w-full" disabled={!ready} onClick={create}>{busy ? "Creating…" : "Create backup"}</Button>
       {error && <p role="alert" className="text-red-800">{error}</p>}
       {done && (
-        <div role="status" className="space-y-1 rounded-lg border border-green-800 bg-green-50 p-4">
+        <div role="status" className="space-y-1 rounded-lg border border-brand bg-brand-soft p-4">
           <p className="font-medium">Backup saved and checked.</p>
           <p className="break-all">{done.path}</p>
           <p>
@@ -160,7 +160,7 @@ function RestoreSection({ api, folder, onChanged, onRestored }: { api: Api; fold
         </p>
       )}
       {done && (
-        <div role="status" className="space-y-1 rounded-lg border border-green-800 bg-green-50 p-4">
+        <div role="status" className="space-y-1 rounded-lg border border-brand bg-brand-soft p-4">
           <p className="font-medium">Restored from the backup made {when(done.backup_created_at_utc_us)}.</p>
           <p>
             {done.medications} {done.medications === 1 ? "medication" : "medications"}, {done.doses} {done.doses === 1 ? "entry" : "entries"}.
