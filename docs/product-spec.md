@@ -3,7 +3,7 @@
 **Status:** Proposed; no application code is included
 
 **Evidence checked:** 2026-11-14
-**Scope assumption:** U.S.-focused personal medication log; one local data set per device; iOS is the first release candidate, with Android and desktop evaluated separately.
+**Scope assumption:** U.S.-focused personal medication companion; one local data set per device; iOS, Android, Windows, and macOS are primary product targets, with mobile usability and easy dose logging driving the design.
 
 ## Evidence labels
 
@@ -14,9 +14,11 @@
 
 ## 1. Executive recommendation
 
-Build a local-first Tauri v2 app with a TypeScript/React frontend, a small Rust domain/application layer, and a private SQLite database. Keep the medication catalog in a separately versioned, read-only bundled SQLite file. Use SQLite for the ledger, schedule calculations, filters, and charts; do not add DuckDB unless representative workloads demonstrate a need that SQLite cannot meet.
+Build a Tauri v2 app with a TypeScript/React frontend, a small Rust domain/application layer, and a private SQLite database. Keep the local ledger responsive and available to the main taking-medication flow, but allow deliberate, user-controlled network access for approved services, catalog updates, app updates, and health-platform integration. Keep the medication catalog in a separately versioned, read-only bundled SQLite file unless a reviewed online catalog service becomes materially better. Use SQLite for the ledger, schedule calculations, filters, and charts; do not add DuckDB unless representative workloads demonstrate a need that SQLite cannot meet.
 
-Treat the schedule engine as the source of truth for expected occurrences. Treat native notifications as best-effort delivery requests only. A reminder, notification tap, or notification dismissal must never write a taken-dose event. Start with iOS, where native local notification requests are supported by the operating system, but do not promise reminder reliability until the Tauri plugin and native OS behavior pass the Phase 0 spike. Android needs a separate exact-alarm and reboot assessment. Defer desktop reminders: the official Tauri notification plugin schedules only on mobile and shows desktop notifications immediately; platform-native desktop scheduling requires different integrations.[^tauri-notifications]
+The primary product outcome is that a non-technical person can identify what is due and record a dose or skip quickly, confidently, and with minimal reading or navigation. Optimize the Today and take/skip flows before expanding reporting.
+
+Treat the schedule engine as the source of truth for expected occurrences. Treat native notifications as best-effort delivery requests only. A reminder, notification tap, or notification dismissal must never write a taken-dose event. Validate iOS and Android notifications first because mobile is the primary taking-medication experience. Windows and macOS remain first-class product targets, but desktop reminders and health integrations must use target-specific adapters rather than being assumed equivalent to mobile.[^tauri-notifications]
 
 Adopt immutable schedule versions and persisted occurrence snapshots. Store UTC instants, IANA zone identifiers, original local wall time, original offset, entry time, schedule-version reference, and time-zone-database version. Keep corrections understandable through a compact revision history rather than full event sourcing. Show history in original, current-device, or selected reporting-zone time without rewriting stored facts.
 
@@ -28,22 +30,25 @@ The highest risks are:
 2. Whether reminders are sufficiently dependable under app termination, device sleep/reboot, permissions, travel, and time-zone changes.
 3. Whether a bundled IANA time-zone database and the device's reported current zone can be kept consistent across targets.
 4. Whether users expect encrypted app databases, OS-backup exclusion, or simple per-device storage; each changes recovery and key-management work.
+5. Whether Android Health Connect and supported Google health APIs can read or write the intended medication record without weakening user consent, adding a server unnecessarily, or misrepresenting data as clinical records.
 
-“Completely offline” should mean that installed app features do not require a network connection. It does not mean users can download the installer, an app-store update, or an optional desktop update while offline. No runtime medication API, account, cloud, telemetry, remote font, or remote script is part of this design. Distribution and user-initiated updates remain separate, optional network flows.
+Medtracker is not specified as completely offline. The app may use the network for explicit, documented features such as health-platform authorization, Google/Android health integration, catalog retrieval, updates, and optional synchronization later. Manual logging should remain resilient during a temporary connection failure and integrations must never block or silently duplicate a dose record. No advertising, behavioral analytics, or undisclosed data transfer is part of this design.
 
 ## 2. Product specification
 
 ### Problem statement
 
-People who want a personal medication history need a trustworthy way to record what they say they took, skipped, or observed, and to review that history across dates and time zones. Existing reminder behavior can be easy to confuse with evidence of a dose. Medtracker should make the distinction explicit and keep a user's historical records stable when a schedule, catalog entry, clock, or time zone changes.
+People taking medication need a trustworthy, low-effort way to see what is due and record what they say they took, skipped, or observed. The primary use case is helping a user such as the product owner's wife complete daily medication tracking without navigating dense forms, interpreting ambiguous labels, or remembering whether an item was already recorded. Medtracker should keep the primary action obvious while preserving history across schedule, catalog, clock, or time-zone changes.
 
 ### Target users and primary use cases
 
 - A person maintaining their own medication log, including while traveling.
-- A person who wants to record doses, explicit skips, notes, or observations and later inspect or export the raw history.
+- A person who wants to take a medication and record it in as few understandable steps as possible.
+- A caregiver supporting setup or reviewing history, without sharing an account in the MVP.
+- A person who wants to record explicit skips, notes, or observations and later inspect or export the raw history.
 - A person who wants reminders but understands that notifications can be denied, delayed, suppressed, or missed.
 
-**Not in the initial scope:** multi-person/caregiver records, shared accounts, clinician workflows, pharmacy or prescription management, or automatic import from health platforms.
+**Not in the initial scope:** clinician workflows, pharmacy or prescription management, medical advice, or guaranteed two-way health-platform synchronization.
 
 ### Product principles
 
@@ -55,10 +60,14 @@ People who want a personal medication history need a trustworthy way to record w
 6. Charts describe recorded data and expose their time zone, date range, denominator, and exclusions.
 7. Local data, export, backup, restore, and deletion are first-class product surfaces.
 8. No feature should infer safe dosage, treatment effectiveness, or clinical causation.
+9. Taking and recording a due medication should be one clear, accessible action; setup detail must not obstruct daily use.
+10. Network-enabled integrations are explicit, permission-based, failure-tolerant, and never replace the user's authoritative ledger action.
 
 ### MVP scope
 
-- One local profile per installation, with no account or automatic synchronization.
+- One local profile per installation, with no Medtracker account required.
+- A Today view that groups medications by due-now/upcoming/complete state and provides a large, plainly labeled **Taken**, **Skip**, and **Undo** flow.
+- A confirmation step only where needed to prevent accidental records; avoid requiring navigation through medication details for routine logging.
 - Add a medication from an approved bundled U.S. catalog or enter one manually.
 - Store a historical medication snapshot: selected display name, strength, form, units, optional catalog identifier/release, and optional user display name.
 - Create, pause, resume, edit, and discontinue versioned schedules. MVP recurrence choices: selected weekdays at one or more wall-clock times, plus fixed elapsed intervals anchored to a user-confirmed instant.
@@ -66,21 +75,23 @@ People who want a personal medication history need a trustworthy way to record w
 - Review a chronological ledger and descriptive scheduled-occurrence summary.
 - Export a user-selected CSV/JSON report; create and restore a versioned, encrypted backup after the recovery spike.
 - Show notification permission state and a generic, privacy-preserving reminder where the target platform passes the feasibility gate.
-- Work with network access disabled after installation.
-- Responsive touch-first UI on the first target; localization-ready date, number, and unit display.
+- Responsive touch-first mobile UI and adapted Windows/macOS desktop layouts; localization-ready date, number, and unit display.
+- Optional Android health integration only after a Phase 0 feasibility and consent review. A connection failure must leave the local ledger usable.
 
 ### Explicit non-goals
 
 - Dose recommendations, dose calculations, interaction checking, diagnoses, treatment changes, contraindication screening, adherence coaching, risk alerts, or clinical-improvement claims.
 - Prescription creation/refill, medication identification by image, barcode scanning, pill recognition, or comprehensive drug information.
-- Accounts, backend, cloud synchronization, advertising, analytics, telemetry, remote medication API, or automatic cross-device restore.
+- Medtracker advertising, behavioral analytics, unexplained third-party telemetry, or automatic medical interpretation.
+- A Medtracker account or automatic cross-device synchronization unless separately approved after the core product succeeds.
 - A generic scheduling engine, arbitrary RRULE editor, or user-programmable workflows.
 - Guaranteeing notification delivery, including during force-stop, reboot, OS focus modes, permission denial, or battery restrictions.
 - Clinical records, clinician access, or claims of regulatory or privacy compliance.
 
 ### Post-MVP capabilities
 
-- Android, then desktop targets as independent device histories.
+- Windows/macOS target-specific notification improvements and desktop UX.
+- Android/Google health import or export where supported, with per-record provenance and user confirmation.
 - Additional chart filters and user-defined observation visualizations.
 - Optional encrypted user-controlled import/export workflows and more detailed audit browsing.
 - Additional schedule patterns only where user research demonstrates need.
@@ -90,7 +101,7 @@ People who want a personal medication history need a trustworthy way to record w
 
 | ID | Requirement |
 |---|---|
-| PR-01 | After installation, medication search, editing, schedule calculation, logging, history, charts, export, backup, and restore shall not require network access. No personal data shall be sent to a service by the app. |
+| PR-01 | Core local logging, history, and correction shall remain usable during a temporary connection failure. Every network destination shall have a documented purpose and consent boundary; no personal data shall be sent to an unapproved service or used for advertising or behavioral analytics. |
 | PR-02 | The app shall support catalog selection and manual medication entry. Immutable medication versions shall preserve historical names, strength, form, units, and catalog provenance across user edits, catalog releases, or item retirement. |
 | PR-03 | A user shall be able to create, edit, pause, resume, and end a schedule using one of the explicitly distinct schedule semantics in §4. |
 | PR-04 | A dose event shall store occurrence time separately from entry time and shall preserve the original local-time, IANA-zone, and UTC-offset context when available. |
@@ -105,9 +116,10 @@ People who want a personal medication history need a trustworthy way to record w
 | PR-13 | Notifications shall be optional and permission-aware, and shall be scheduled by a native/platform integration, never by a foreground JavaScript timer alone. |
 | PR-14 | The initial architecture shall remain one application with local modules and one primary database; DuckDB, services, and speculative infrastructure are excluded absent measured need. |
 | PR-15 | The interface shall support keyboard, touch, screen readers, text scaling, and non-color state cues; every chart shall have an equivalent textual/table representation. |
-| PR-16 | The first public platform shall be selected only after the Phase 0 native build and notification gate. Other platforms shall not be implied to have feature parity. |
-| PR-17 | The app shall not include remote fonts, scripts, stylesheets, charts, or other runtime content. All app assets and catalog data shall be bundled. |
+| PR-16 | iOS, Android, Windows, and macOS shall be treated as primary product targets. Each platform shall pass a target-specific build, accessibility, reminder, data-protection, and distribution gate; unsupported capabilities shall be disclosed rather than emulated silently. |
+| PR-17 | UI fonts, scripts, styles, and chart code shall be locally bundled. Network use shall be restricted to reviewed endpoints and visible user features, with no arbitrary runtime code loading. |
 | PR-18 | The app shall not claim legal, privacy, security, or regulatory compliance solely because records are local or encrypted. |
+| PR-19 | Health-platform integrations shall be optional and separately authorized. Imported data shall retain source/provenance and duplicate status; exporting shall be explicit and never treat platform acceptance as proof that a dose was taken. |
 
 ## 3. User journeys and information architecture
 
@@ -120,11 +132,11 @@ Use a responsive shell with four primary destinations:
 3. **Reports** — descriptive charts, metric definitions, date range, and zone selector.
 4. **Medications** — catalog/manual add, medication details, schedules, pause/resume/discontinue.
 
-Settings is a secondary destination reachable from the navigation/header: time display defaults, notification permissions and privacy, export/backup/restore, data deletion, catalog/version details, and about/disclaimer. On narrow screens, use a bottom navigation bar; on desktop, use a compact side rail. Keep add/log flows as modal sheets on mobile and dialogs or panels on desktop, with full-screen alternatives for accessibility.
+Settings is a secondary destination reachable from the navigation/header: time display defaults, notification permissions and privacy, health-integration permissions and connection status, export/backup/restore, data deletion, catalog/version details, and about/disclaimer. On narrow screens, use a bottom navigation bar; on desktop, use a compact side rail. Keep add flows as modal sheets on mobile and dialogs or panels on desktop, with full-screen alternatives for accessibility. Keep the routine Today dose action inline: identify the medication, confirm the amount/time already shown when needed, then save with one large button and an immediate undo option.
 
 ### Journeys
 
-- **First launch:** explain local-only storage and no account; disclose that system notifications and OS backups are separate; request no permission until a user enables reminders; offer catalog/manual add.
+- **First launch:** explain local storage and the absence of a required Medtracker account; disclose that network services, health authorization, system notifications, and OS backups are separate; request no permission until a user enables the corresponding feature; offer catalog/manual add.
 - **Add medication:** search the bundled catalog by normalized/display name, brand, ingredient, strength, or form; show source/release and the distinction between product strength and amount entered per event. If not found, choose manual entry. Store a snapshot and optional custom display name.
 - **Create a schedule:** choose “follows this device's current time zone,” “fixed in a selected home time zone,” or “fixed elapsed interval anchored at [instant].” Preview upcoming instants with zone abbreviations/offsets and explain DST policies. The preview is descriptive; it never tells the user to change medication use.
 - **Log now:** select the medication, enter an optional amount and unit plus note/observation, confirm the event time in the current zone, and save. No reminder is required.
@@ -134,6 +146,7 @@ Settings is a secondary destination reachable from the navigation/header: time d
 - **Review charts:** show the range, reporting zone, scheduled-occurrence denominator, explicit skips, logged occurrences, missing logs, and conflicting entries. Provide table/export access and metric definitions.
 - **Export/backup/restore:** let the user choose destination and format; warn before a plain export leaves the app sandbox. For encrypted backup, collect a passphrase or use a user-controlled key; verify a restore in a staging file before replacing live data.
 - **Manage permission:** show app-level state and a link to OS settings when denied. Distinguish “reminder request queued” from “notification permission granted” and “dose logged.” Permission denial never prevents manual logging.
+- **Connect a health platform:** explain exactly which Android/Google data may be read or written and for what purpose; request authorization only when the user chooses Connect; show last status, source record, duplicate review, revoke/disconnect, and retry separately from the local dose ledger. A failed, revoked, or unavailable connection never hides the manual logging flow.
 
 ## 4. Domain model and time semantics
 
@@ -268,7 +281,7 @@ Personal records and catalog should not be in the same DB. The catalog is shippe
 
 - **Recommendation:** React + TypeScript + Vite, using Tauri v2 APIs and locally bundled CSS/components. This is a familiar, small web stack with explicit TypeScript types and responsive layouts; keep the frontend thin and do not move time or schedule rules into JavaScript.
 - **Charts:** Chart.js for the initial bar/line views, bundled locally and configured without remote resources. Supply accessible headings, definitions, screen-reader summaries, and an equivalent data table; do not make canvas the only representation. If a prototype shows poor touch/accessibility or unnecessarily large bundles, use simple inline SVG rather than adopting a larger visualization framework.
-- No remote fonts, scripts, chart packages loaded from CDNs, web analytics, or runtime remote styles.
+- Keep fonts, scripts, chart packages, styles, and core layout assets bundled; do not load arbitrary UI code from the network. Approved API responses must be typed, bounded, validated, and separable from the core rendering path.
 
 ### Rust modules and boundaries
 
@@ -281,12 +294,15 @@ application/     validated use cases and transaction boundaries
 storage/         SQLite repositories and migrations
 catalog/         read-only search and bundled release metadata
 notifications/   platform adapter, queue reconciliation, permission state
+integrations/    health-platform ports, authorization, provenance, duplicate review
 export/          CSV/JSON serialization and destination handoff
 backup/          snapshot, encryption envelope, validate/restore
 commands/         typed Tauri command DTOs and error mapping
 ```
 
 Tauri commands accept typed input DTOs, validate in Rust, invoke application use cases, and return typed DTOs/errors. Do not expose raw SQL or generic “execute query” commands to the frontend. Return explicit failures (validation, permission denied, storage full, migration failure, backup invalid, notification unsupported) rather than success-shaped defaults.
+
+Keep the main Today screen driven by local state. Network calls belong behind explicit integration commands with visible pending, denied, disconnected, and retry states. No integration adapter may write a taken event directly; it may propose an imported record for review or export an already saved local record.
 
 ### Database access
 
@@ -301,6 +317,10 @@ Use a pinned Rust IANA timezone implementation, such as `chrono-tz`, for determi
 Define `ReminderScheduler` domain port with operations to request/cancel/reconcile an occurrence, query permission status, and capture supported interactions. A native adapter receives immutable occurrence IDs and UTC instants; it cannot write dose events. The schedule engine and ledger remain usable when the adapter is unavailable or permission is denied.
 
 Use the official Tauri notification plugin as the first prototype because it exposes immediate and scheduled mobile notifications. Its current docs state that `Schedule` is mobile-only and desktop notifications are immediate, so desktop reminders need a different integration.[^tauri-notifications] For the first release, cap the queued horizon to a short rolling window chosen by measured per-platform limits; the database schedule remains authoritative. Never enqueue unbounded reminders.
+
+### Health integrations
+
+Treat Android Health Connect and any applicable Google health API as optional adapters, not as the primary database. A Phase 0 spike must verify the currently supported data types, medication-related write/read limitations, permissions, Android version/support requirements, application OAuth/developer-console requirements, account handling, and whether Tauri needs a native bridge. Do not map health data into medication events by name alone. Each imported candidate needs source, timestamp, source record ID, and a user-reviewed duplicate decision before it can become a local ledger event. Export remains explicit; an integration acceptance response only means the receiving platform accepted the request.
 
 ### Catalog pipeline
 
@@ -317,11 +337,11 @@ RxNorm says RXCUIs may be merged, split, archived, or retired, while RxNorm-norm
 
 ### Packaging and release
 
-Build signed platform artifacts in CI from pinned Rust/Node dependencies, include a software bill of materials and catalog provenance, and test the actual signed install package (not only a dev build). Keep signing keys outside the repository. App-store delivery, desktop installer download, and optional updater checks are distinct from offline app operation. Tauri's updater is an optional signed-update mechanism with configured endpoints, not a requirement for using the application.[^tauri-updater]
+Build signed iOS, Android, Windows, and macOS artifacts from pinned Rust/Node dependencies, include a software bill of materials and catalog provenance, and test the actual signed install package (not only a dev build). Keep signing keys outside the repository. App-store delivery, desktop installer download, app-update checks, and health-service network calls are explicit reviewed flows rather than assumptions that all platforms behave alike. Tauri's updater is optional; it is not a requirement for using the core application.[^tauri-updater]
 
 ### Dependency-selection criteria
 
-Prefer maintained, permissively licensed crates/plugins with mobile support, offline bundling, explicit permission behavior, typed APIs, auditable source, and platform-specific tests. Pin versions and lockfiles. Review transitive network behavior and notices. No DuckDB for MVP: SQLite covers the ledger and aggregations without a second engine or larger analytical surface. Add DuckDB only if measured exports or reports exceed SQLite performance/complexity requirements.
+Prefer maintained, permissively licensed crates/plugins with iOS, Android, Windows, and macOS support, explicit permission behavior, typed APIs, auditable source, and platform-specific tests. Pin versions and lockfiles. Review every transitive network behavior, data destination, OAuth scope, and notice. No DuckDB for MVP: SQLite covers the ledger and aggregations without a second engine or larger analytical surface.
 
 ## 7. Reporting and chart definitions
 
@@ -351,7 +371,7 @@ The table distinguishes the official Tauri plugin's documented behavior from the
 | Android | Supports immediate and scheduled mobile notifications. Plugin includes schedule helpers; exact alarm behavior and reboot restoration are not established by its overview. | Android alarms can operate outside app lifetime and while asleep. Exact alarms on Android 12+ require declared special access; Android 13+ notifications need runtime `POST_NOTIFICATIONS` permission. Battery-saving policies can delay inexact alarms. AlarmManager state should not be assumed to survive reboot; verify rescheduling and force-stop behavior on devices.[^android-alarms][^android-permission] | Phase 0 feasibility, then Phase 4 platform release. Require explicit permission handling; if exact-alarm access is unavailable, state the weaker behavior or omit reminders. |
 | Windows | Plugin supports notifications on Windows only for installed apps, but its schedule API is mobile-only, so plugin notifications are immediate. | Windows App SDK supports scheduled app notifications independently of Tauri. Microsoft's docs specify a five-minute delivery window and say a notification is dropped if the computer is off beyond five minutes; a background-task alternative is suggested for stronger delivery but needs a separate integration.[^windows-notifications][^windows-scheduled] | No reminder promise in MVP. Prototype WinRT/Windows App SDK integration before adding scheduled reminders. |
 | macOS | Plugin supports immediate notification; plugin scheduling is mobile-only. | Apple UserNotifications supports local scheduled requests. A native Swift/Objective-C bridge, permission UX, bundle identity/signing behavior, app-not-running behavior, sleep/wake, and restart semantics need a macOS spike. | Desktop later; no timer-based fallback. |
-| Linux | Plugin supports immediate notification; plugin scheduling is mobile-only. | Freedesktop notifications describe passive desktop notifications, not a portable scheduler. GNOME documents app-associated notification persistence when the app has a valid desktop file and D-Bus activation, but that is a GNOME/GApplication integration requirement, not proof of a portable Tauri scheduler.[^freedesktop-notifications][^gnome-notifications] | Defer scheduled reminders; support only immediate UI feedback until a target-desktop-specific integration passes. |
+| Linux | Plugin supports immediate notification; plugin scheduling is mobile-only. | Freedesktop notifications describe passive desktop notifications, not a portable scheduler. | Outside the primary supported platform scope. Re-evaluate only if Linux becomes a funded target. |
 
 Sources: [Tauri Notification plugin](https://v2.tauri.app/plugin/notification/); [Apple local notifications](https://developer.apple.com/documentation/usernotifications/scheduling-a-notification-locally-from-your-app.md); [Android alarms](https://developer.android.com/develop/background-work/services/alarms); [Android notification permission](https://developer.android.com/develop/ui/compose/notifications/notification-permission); [Windows app notifications](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/); [Windows scheduling](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-scheduled); [freedesktop spec](https://specifications.freedesktop.org/notification/latest/); [GNOME notification guidance](https://developer.gnome.org/documentation/tutorials/notifications.html).
 
@@ -385,7 +405,7 @@ Build a throwaway vertical prototype before investing in polished UI:
 
 | Threat | Control and limit |
 |---|---|
-| Lost device | Private app directory; rely on OS device encryption and lock-screen security; exclude database from automatic cloud backup to meet the no-cloud promise; generic notification previews. This does not protect an unlocked or compromised device. |
+| Lost device | Private app directory; rely on OS device encryption and lock-screen security; exclude database from automatic cloud backup unless a future explicit sync/backup feature changes that policy; generic notification previews. This does not protect an unlocked or compromised device. |
 | Casual local access | Use OS app sandbox/data directory, least-privilege Tauri capabilities, no raw SQL command, no personal values in routine logs, optional OS-backed key storage if DB encryption is adopted. Desktop users with access to their own account can often access app files. |
 | Malicious local software/rooted device | Do not claim protection. A local attacker with process/filesystem privileges may read memory, export plaintext, or capture keys. Encryption at rest raises the bar for offline file theft but cannot protect data while the app is unlocked. |
 | Intentionally exported data | User chooses destination and format; plain CSV/JSON warns that it is unencrypted. Encrypted backup uses authenticated encryption, per-backup random salt/nonce, a password-based KDF with versioned parameters, and integrity validation. Once copied/shared, the app cannot control the copy. |
@@ -410,7 +430,7 @@ Build a throwaway vertical prototype before investing in polished UI:
 ### Logs, crash handling, network, deletion
 
 - Disable telemetry, analytics, crash uploads, and automatic diagnostics. Routine logs contain operation/error codes only, not medication names, doses, notes, observations, backup paths, or database content. Any user-initiated diagnostic bundle is previewed and scrubbed before export.
-- Runtime network access is absent except explicit user-initiated export/share or release/update workflows; app functionality is tested with network blocked. No remote dependencies at runtime.
+- Maintain an allowlist of network destinations, scopes, data fields, and initiating features. Health, catalog, and update requests fail visibly and never upload medication data implicitly. Core local logging and history are tested with network access blocked, while online integration paths are tested separately for timeouts, invalid responses, revoked access, and retries.
 - Permanent wipe cancels native requests, clears user DB and sidecars, removes key material and app-generated temporary files, then confirms completion. Explain it cannot erase OS/user backups, screenshots, shared exports, old filesystem snapshots, storage wear-leveling copies, or data copied elsewhere.
 
 ### Compliance and review flags
@@ -424,12 +444,12 @@ Local-only storage and “not medical advice” wording do not establish regulat
 - **Rust unit tests:** schedule generation and version boundaries; `device_local`, `home_zone`, elapsed interval; DST gap/fold; date-line crossing; occurrence identity; conflicting outcomes; correction history; exact decimal amount encoding; report denominators and range boundaries.
 - **SQLite integration tests:** foreign keys on every connection, uniqueness/check constraints, indexes, transactions, concurrent reads/writes, rollback on failure, migration from every supported schema, `integrity_check`, `foreign_key_check`, archive/delete/wipe behavior.
 - **Backup/restore tests:** valid encrypted backup; wrong passphrase; truncated/corrupt ciphertext; malformed manifest; unsupported newer version; older version migration; disk-full/atomic replacement failure; restore preserves event and schedule snapshots.
-- **Catalog tests:** pinned release manifest/checksum; deterministic ingestion; whitelisted TTY/source coverage; duplicate/retired/merged IDs; FTS matches and offline search; historical snapshots unchanged when replacing catalog.
+- **Catalog tests:** pinned release manifest/checksum; deterministic ingestion; whitelisted TTY/source coverage; duplicate/retired/merged IDs; FTS matches; historical snapshots unchanged when replacing catalog.
 - **Time tests:** fixed offsets, IANA zones, DST gap/fold, timezone changes, manual clock jumps, International Date Line, backdated local times, tzdb version upgrades, and current-device/home-zone/selected-zone display.
 - **Notification/device tests:** Phase 0 matrix on physical iOS/Android; desktop native spikes before adding desktop notifications. Test app closed/terminated distinctions, device sleep/reboot, denied permissions, OS notification disabled, stale cancellation, duplicate prevention, schedule mutation, and “tap does not log.”
 - **Accessibility:** keyboard-only desktop navigation, VoiceOver/TalkBack, dynamic text/zoom, contrast, focus order, touch target size, chart tables, not-color-only states, reduce-motion.
-- **Offline/network isolation:** install with network available, then block all egress and exercise catalog search, schedules, logging, history, reports, export, backup, and restore. Verify no DNS/HTTP request or remote asset is needed; separately inspect allowed user-initiated distribution/update flows.
-- **Cross-platform UI smoke:** target platform's signed release package, clean install, upgrade preserving DB, uninstall/reinstall expectations, app-data path, native permission prompts, and low-storage behavior.
+- **Network and failure tests:** disable connectivity and verify local Today, logging, history, correction, schedule calculation, and restore remain usable. Record every approved endpoint and purpose; test timeout, invalid response, revoked consent, partial import, duplicate import, denied export, and retry behavior. Verify health integration never blocks or silently creates a local dose.
+- **Cross-platform UI smoke:** signed iOS, Android, Windows, and macOS packages; clean install; upgrade preserving DB; uninstall/reinstall expectations; app-data path; native permission prompts; responsive layouts; and low-storage behavior.
 - **Size/performance:** record bundle/install size by architecture, cold launch, catalog search latency (median/p95), timeline and chart query latency on the representative fixture, backup/restore time, and memory use. Establish measured baselines and regression budgets; do not promise unmeasured app size, speed, or delivery time.
 
 ### Representative deterministic fixture
@@ -444,7 +464,8 @@ Use synthetic records only:
 
 ### Given/When/Then acceptance criteria
 
-- **PR-01 offline:** Given a clean installed app with network egress blocked, when the user searches the catalog, edits a schedule, logs an event, opens reports, and exports, then each succeeds without DNS/HTTP or remote assets.
+- **PR-01 network failure:** Given connectivity and a health integration are unavailable, when Today is opened and a due medication is logged, then the local event saves once, remains visible, and exposes a separate integration/retry state without preventing use of the app.
+- **PR-19 health integration:** Given the user authorizes a supported health adapter and a record already exists locally, when the adapter receives the same record, then the app reports or proposes a duplicate rather than silently creating a second dose; revoked authorization fails visibly and does not erase local history.
 - **PR-02 snapshot:** Given a catalog medication selection, when a later app release retires or renames that catalog item, then the user's historical selected name, strength, form, units, and RXCUI/release snapshot remain visible and unchanged.
 - **PR-02 medication edit:** Given a medication with existing events and a schedule, when the user edits its display name, strength, form, or units, then the app creates a new medication version and prior events/schedule versions continue to reference the earlier snapshot.
 - **PR-03/07 schedule history:** Given schedule version 1 with future occurrences, when the user changes its time and saves, then version 1 and past occurrence snapshots remain intact, future occurrences reference version 2, and queued version-1 requests are cancellation-tracked.
@@ -466,59 +487,59 @@ Effort is relative (`S` small, `M` medium, `L` large, `XL` substantial uncertain
 ### Phase 0 — feasibility and risk reduction
 
 - **Objective:** resolve platform, catalog, timezone, privacy, and release risks before meaningful UI investment.
-- **Deliverables:** iOS and Android native notification prototype; native current-zone discovery spike; DST behavior tests; catalog provenance/redistribution decision; storage/backup and app-store distribution review; Tauri target build baseline.
-- **Requirements:** PR-02, PR-03, PR-07, PR-11, PR-13, PR-16, PR-17, PR-18.
+- **Deliverables:** user-tested Today/take/skip wireflow; iOS and Android native notification prototype; native current-zone discovery spike; DST behavior tests; catalog provenance decision; Android Health Connect/Google health capability and consent spike; storage/backup and four-platform distribution review; Tauri build baseline for iOS, Android, Windows, and macOS.
+- **Requirements:** PR-02, PR-03, PR-07, PR-11, PR-13, PR-16–PR-19.
 - **Dependencies:** none.
-- **Major tasks:** execute §8 spike; inspect current NLM release data and license with counsel/source owner as needed; test `chrono-tz` versioning and local-zone bridge; evaluate per-app backup exclusion; verify Rust/Node/Tauri build for target signed package; choose default DB encryption stance.
-- **Acceptance:** one selected first platform builds and installs as a signed/minimally distributable package; all scheduled-notification scenarios have collected evidence and a go/no-go decision; catalog source/fields and redistribution path are documented; timezone gap/fold/zone-change behavior passes deterministic tests; no requirement depends on runtime network.
+- **Major tasks:** validate the routine taking-medication flow with the intended user; execute §8 spike; inspect current NLM release data and license; test `chrono-tz` versioning and local-zone bridges; evaluate Android Health Connect and applicable Google health endpoints/scopes; evaluate per-app backup exclusion; verify Rust/Node/Tauri builds for all four targets; choose default DB encryption stance.
+- **Acceptance:** all four target platforms have a documented build/distribution path and mobile test builds install; all scheduled-notification scenarios have a go/no-go decision; health-integration support and data mapping are documented or explicitly deferred; catalog source/fields and redistribution are documented; timezone gap/fold/zone-change behavior passes deterministic tests.
 - **Risks/mitigations:** notification or catalog ambiguity blocks feature promises—narrow release or hold release; native zone ID unavailable—defer `device_local` scheduling and clearly constrain modes; encryption/build complexity—start with OS protections and a separate threat-driven SQLCipher decision.
 - **Exit gate:** product owner accepts platform scope, catalog provenance, reminder scope, and privacy/recovery stance based on evidence.
 - **Deferred:** polished design, broad platform parity, analytics, complex recurrence.
 
 ### Phase 1 — smallest useful vertical slice
 
-- **Objective:** deliver an offline single-platform path from medication creation to a corrected historical event.
-- **Deliverables:** app shell, per-app SQLite DB/migrations, manual medication creation, catalog search if licensing gate passes, event ledger, time-context capture, correction history, accessible timeline.
+- **Objective:** deliver the easiest possible mobile path from seeing a due medication to a corrected historical event.
+- **Deliverables:** app shell, Today view, large Taken/Skip/Undo flow, per-app SQLite DB/migrations, manual medication creation, catalog search if licensing gate passes, event ledger, time-context capture, correction history, accessible timeline.
 - **Requirements:** PR-01, PR-02, PR-04, PR-05, PR-06, PR-11, PR-12, PR-15, PR-17.
 - **Dependencies:** Phase 0 platform and storage decisions; catalog provenance for catalog UI.
 - **Major tasks:** set up typed Tauri commands; build repository/migration layer; create medication snapshots; logging/backdating UI; test timezone capture; implement archive and delete distinctions.
-- **Acceptance:** Given an offline install, user can add a manual medication, log now/backdate, correct an entry, and inspect original/current time context; restart preserves all values; catalog update simulation does not alter snapshots.
+- **Acceptance:** the intended user can add a manual medication and, from Today, record one due dose in no more than the agreed core steps without help; log/backdate/correct still work with connectivity disabled; restart preserves values and a catalog update simulation does not alter snapshots.
 - **Risks/mitigations:** app-state leakage or ambiguous entry UX—explicit labels and tests; catalog legal gate delayed—keep manual add useful but do not market catalog availability before approval.
-- **Exit gate:** all Phase 1 acceptance tests pass on the selected signed target and the user ledger survives app restart/upgrade.
-- **Deferred:** charts, scheduled notifications, desktop/Android release, arbitrary custom observation schema.
+- **Exit gate:** usability and Phase 1 acceptance tests pass on iOS and Android test builds, and the user ledger survives app restart/upgrade.
+- **Deferred:** charts, scheduled notifications, production desktop release, arbitrary custom observation schema.
 
 ### Phase 2 — MVP completion
 
-- **Objective:** complete schedules, occurrence outcomes, descriptive reports, catalog, export/backup, and permission-aware reminders for the selected platform.
+- **Objective:** complete schedules, occurrence outcomes, descriptive reports, catalog, export/backup, and permission-aware reminders for the first mobile release candidate.
 - **Deliverables:** immutable schedule versions; occurrence materializer; zone-aware reports; catalog bundle/search; CSV/JSON export; encrypted backup/restore; reminder adapter only if spike passed; settings/privacy surfaces.
 - **Requirements:** PR-01–PR-13, PR-15, PR-17.
 - **Dependencies:** Phase 1 ledger; Phase 0 notification/catalog gates.
 - **Major tasks:** implement recurrence modes and DST policies; schedule reconciliation; outcome classification; chart queries; migration/backup restore; catalog pipeline; permission and preview UX.
-- **Acceptance:** fixture expectations in §10 match exactly; restore tests pass; permission denial degrades without blocking logging; no chart conflates missing and skipped; reminder adapter produces no dose event; offline test passes.
+- **Acceptance:** fixture expectations in §10 match exactly; restore tests pass; permission denial and network failure do not block logging; no chart conflates missing and skipped; reminder and health adapters never create an unreviewed dose event; network failure tests pass.
 - **Risks/mitigations:** native scheduling varies—ship reminders only on passed platform; restore/cipher failures—test staged restore and key loss; report ambiguity—publish denominators and table exports.
 - **Exit gate:** requirement-level tests and product review approve data portability, definitions, and platform-specific reminder statement.
 - **Deferred:** automatic sync, all desktop targets, user-configurable arbitrary recurrence, causal observation analysis.
 
-### Phase 3 — hardening and first release
+### Phase 3 — hardening and first mobile release
 
-- **Objective:** ship a safe, understandable, supportable first release on the selected platform.
-- **Deliverables:** release packaging/signing, migration/backup recovery path, accessibility pass, privacy and permission disclosures, catalog attribution/license artifacts, offline/network test report, diagnostics policy, release-size/performance baselines.
-- **Requirements:** PR-01, PR-02, PR-10–PR-13, PR-15–PR-18.
+- **Objective:** ship a safe, understandable, supportable first release on the mobile platform selected through Phase 0 and usability testing, while retaining the remaining three targets as committed follow-up releases.
+- **Deliverables:** release packaging/signing, migration/backup recovery path, accessibility and usability pass, privacy/health permission disclosures, catalog attribution/license artifacts, network/data-flow test report, diagnostics policy, release-size/performance baselines.
+- **Requirements:** PR-01, PR-02, PR-10–PR-13, PR-15–PR-19.
 - **Dependencies:** Phase 2 acceptance and all legal/platform release gates.
 - **Major tasks:** test store/package review; verify automatic backup exclusions; exercise full deletion; crash/error UX without upload; test upgrade from prior database; publish source/attribution/limitations.
-- **Acceptance:** signed install/update path works; upgrade and restore retain expected records; accessibility and offline suite pass; catalog release manifest and notices ship; all measured performance/size results are recorded without unsupported guarantee.
+- **Acceptance:** signed install/update paths work; upgrade and restore retain expected records; accessibility, usability, and network-failure suites pass; catalog release manifest and notices ship; all measured performance/size results are recorded without unsupported guarantee.
 - **Risks/mitigations:** store policy/review or source-data issue—review early and retain manual entry fallback; update fails—store rollback snapshot and user export path; support logs reveal sensitive data—automated redaction tests.
 - **Exit gate:** release checklist, source licensing, privacy disclosures, and target-specific capability statement are approved.
 - **Deferred:** marketing claims of clinical value, cross-device continuity, secondary platforms.
 
-### Phase 4 — additional platforms and improvements
+### Phase 4 — cross-platform and integration expansion
 
-- **Objective:** expand only where platform-specific tests justify the feature and market priority.
-- **Deliverables:** Android candidate, then desktop candidate(s); target-specific adapters, packages, support matrices; optional chart or export improvements based on user feedback.
-- **Requirements:** PR-01, PR-03, PR-09, PR-13, PR-15–PR-17.
-- **Dependencies:** stable core domain and migrations; separate Phase 0/notification spike per target; no synchronization is assumed.
-- **Major tasks:** Android exact/inexact alarm and boot recovery work; desktop notification feasibility for macOS/Windows/Linux individually; target UI/accessibility validation; app-data and OS-backup tests; compatibility matrix.
-- **Acceptance:** each target's signed release package passes offline, data integrity, accessibility, restore, and target-specific notification criteria; unsupported capabilities are disclosed and not silently emulated.
+- **Objective:** finish and maintain iOS, Android, Windows, and macOS releases, then add integrations justified by platform tests and user value.
+- **Deliverables:** platform-specific adapters, signed packages, support matrices, desktop UX parity for core flows, and optional Android/Google health export/import if the feasibility gate passed.
+- **Requirements:** PR-01, PR-03, PR-09, PR-13, PR-15–PR-19.
+- **Dependencies:** stable core domain and migrations; separate notification spike per target; health integration gate where applicable.
+- **Major tasks:** Android exact/inexact alarm and boot recovery work; desktop notification feasibility for macOS/Windows; Windows/macOS core-flow adaptation; target UI/accessibility validation; app-data and OS-backup tests; health integration duplicate/revocation tests; compatibility matrix.
+- **Acceptance:** each target's signed release package passes network-failure resilience, data integrity, accessibility, restore, and target-specific notification criteria; supported health flows pass consent, provenance, and duplicate tests; unsupported capabilities are disclosed and not silently emulated.
 - **Risks/mitigations:** platform drift and notification parity—adapters and explicit target gates; separate device histories surprise users—make no-sync behavior prominent and provide deliberate transfer.
 - **Exit gate:** each platform independently meets its test plan and distribution/privacy review.
 - **Deferred:** cloud sync, backend, universal reminder guarantees, unvalidated integrations.
@@ -533,21 +554,24 @@ Effort: `S` small, `M` medium, `L` large, `XL` high uncertainty. Dependencies na
 |---|---|---|---|---|
 | B0-01 — Build target and distribution spike | Create minimal Tauri v2 builds for candidate iOS, Android, and one desktop target; document signing, app-data paths, and developer prerequisites. No product UI. | None | A clean checkout produces installable test builds; list any unsupported dependency/platform step and app-store/manual update implications. | M; PR-16, PR-17 |
 | B0-02 — Native reminder feasibility prototype | Implement one-shot/daily schedule, cancel, permission, interaction payload, reboot/zone/DST tests on iOS and Android. | B0-01 | Evidence table records device/OS, request, observed result, permission, timing, duplicate/stale behavior; formal go/no-go per platform. | XL; PR-13, PR-16 |
+| B0-06 — Primary user flow usability spike | Prototype the Today, due-medication, Taken/Skip/Undo flow for mobile and test it with the intended primary user. | None | The user can identify the due medication and complete a routine record without assistance; labels, target sizes, contrast, and ambiguous states are corrected. | M; PR-05, PR-15 |
+| B0-07 — Android/Google health feasibility | Evaluate Health Connect and applicable Google health APIs, supported medication-related data, scopes, Tauri native integration, duplicate handling, and export acceptance semantics. | B0-01 | Written go/no-go and data-mapping decision identifies supported OS versions, required permissions/credentials, source provenance, and user-review behavior, or defers integration. | L; PR-01, PR-19 |
 | B0-03 — Catalog license and field-selection decision | Compare current NLM RxNorm full and Current Prescribable Content release access, data fields, coverage, provenance, source restrictions, and app redistribution terms. Confirm RxTerms availability rather than assume it. | None | Written release-specific decision approves exact source/fields/attribution or blocks bundled catalog; manual entry remains available. | L; PR-02, PR-18 |
 | B0-04 — Time-zone engine and native zone probe | Prototype Rust IANA zone resolution, gap/fold policy, tzdb version, and device-current-zone identification on selected targets. | B0-01 | Deterministic tests cover examples in §4; device zone returns valid IANA ID or a surfaced unsupported result; version is recorded. | L; PR-03, PR-04, PR-07 |
 | B0-05 — Privacy, backup, and encryption decision | Confirm app-data location, cloud-backup exclusions, OS protections, SQLCipher need, user backup format, and deletion limitations. | B0-01 | Decision matrix identifies platform settings, key-storage tradeoffs, restore mechanism, and statements the product can/cannot make. | M; PR-10–PR-12, PR-18 |
-| B1-01 — Tauri shell and typed command boundary | Set up React/TypeScript/Vite, responsive navigation shell, Rust command DTOs/errors, local asset policy, and capability allowlist. | B0-01 | App starts offline on target; a typed command round-trip works; no raw SQL or remote asset is exposed. | M; PR-01, PR-15, PR-17 |
+| B1-01 — Tauri shell and typed command boundary | Set up React/TypeScript/Vite, responsive navigation shell, Today-first layout, Rust command DTOs/errors, local asset policy, and network capability allowlist. | B0-01, B0-06 | iOS/Android test builds show the reviewed core flow; a typed command round-trip works; no raw SQL or arbitrary remote code is exposed. | M; PR-01, PR-15, PR-17 |
 | B1-02 — SQLite schema, repository, and migrations | Add personal DB location, schema, `user_version` migrations, constraints, foreign-key setup, backup-before-migration, and integrity checks. | B1-01, B0-05 | Integration tests prove invalid references fail, transactions rollback, migration failure retains original, and reopen preserves records. | L; PR-11, PR-12 |
-| B1-03 — Medication snapshots and manual entry | Add user medication create/edit/archive, exact historical label fields, optional custom name, and product-strength versus event-amount help text. | B1-02 | Manual entry works offline; catalog selection fields can be nullable; archive preserves linked history; no dosage calculation exists. | M; PR-02 |
+| B1-03 — Medication snapshots and manual entry | Add user medication create/edit/archive, exact historical label fields, optional custom name, and product-strength versus event-amount help text. | B1-02 | Manual entry works during network failure; catalog selection fields can be nullable; archive preserves linked history; no dosage calculation exists. | M; PR-02 |
 | B1-04 — Event ledger and correction history | Implement take/skip events, separate UTC occurred/entered timestamps, local/zone/offset capture, optional amount/note, revision and delete behavior. | B1-02, B1-03, B0-04 | Unit/integration tests cover backdating, edit revision, delete redaction, and notification-independent manual entry. | L; PR-04–PR-06 |
 | B1-05 — Accessible history timeline | Build event timeline with original/current/selected zone views, filters, correction markers, and no-log distinction. | B1-04 | Screen reader and keyboard tests pass; switching display zone never mutates stored UTC/original context. | M; PR-05, PR-09, PR-15 |
-| B2-01 — Catalog ingestion and bundled search | Implement pinned-release importer, provenance manifest, approved field/TTY filter, generated read-only DB, FTS index, and release diff tests. | B0-03, B1-03 | Build is deterministic; approved license and notices are packaged; search works with network blocked; update leaves personal snapshots untouched. | L; PR-01, PR-02, PR-17, PR-18 |
+| B2-01 — Catalog ingestion and bundled search | Implement pinned-release importer, provenance manifest, approved field/TTY filter, generated read-only DB, FTS index, and release diff tests. | B0-03, B1-03 | Build is deterministic; approved license and notices are packaged; the existing catalog remains available during a network failure; update leaves personal snapshots untouched. | L; PR-01, PR-02, PR-17, PR-18 |
 | B2-02 — Versioned schedules and occurrence engine | Implement three schedule modes, version lifecycle, occurrence materialization, gap/fold/line-date policies, and tzdb snapshots. | B1-02, B0-04 | Deterministic fixture matches timestamps; edits/pause/resume/end never rewrite past occurrences or backfill silently. | XL; PR-03, PR-07, PR-08 |
 | B2-03 — Outcome linkage and scheduled reports | Implement user event-to-occurrence linking, conflict state, daily counts, zone/day-boundary choice, and event tables. | B1-04, B2-02 | Given §10 fixture, returns 4 total / 2 logged / 1 skipped / 1 not logged / 0 conflict; double-linked entries count once. | L; PR-05, PR-08, PR-09 |
 | B2-04 — Native reminder adapter and reconciliation | Add an adapter only for platforms that passed B0-02; manage queue horizon, cancellation, stale versions, permission state, and privacy-safe payload. | B0-02, B2-02 | OS acceptance/delivery/action states remain separate; permission denial works; tests prove no action creates a dose event. | L; PR-07, PR-13 |
 | B2-05 — Export and encrypted backup/restore | Add CSV/JSON and versioned encrypted snapshot format; staged validation, pre-restore snapshot, atomic replacement. | B1-02, B1-04, B0-05 | Corrupt/wrong-key/newer-format cases fail explicitly; valid restore passes integrity and preserves snapshots. | XL; PR-10–PR-12 |
 | B2-06 — Descriptive charts and metric definitions | Add occurrence outcome bars, event timeline, elapsed event intervals, PRN activity, table alternative, and visible context/definitions. | B2-03, B1-05 | Charts match fixture, expose denominator/zone/range, and do not infer clinical outcomes or hide missing/conflicting data. | M; PR-08, PR-09, PR-15 |
-| B3-01 — Release hardening and privacy verification | Verify signed packages, offline egress, backup exclusions, deletion, accessibility, upgrade, catalog notices, and measured baselines. | B2-01–B2-06 | Release checklist passes on target; no undisclosed network request; signed artifact upgrades without data loss; product limitations documented. | L; PR-01, PR-10–PR-18 |
+| B2-07 — Optional Android health adapter | Implement a reviewed health adapter with explicit authorization, provenance, duplicate review, import/export status, and revocation handling. Only proceed if B0-07 passes. | B0-07, B1-04 | Missing or revoked permission is explicit; duplicate candidates require review; adapter failure leaves the local ledger unchanged; exported acceptance is not labeled as a verified dose. | XL; PR-01, PR-19 |
+| B3-01 — Release hardening and privacy verification | Verify signed packages, reviewed network egress, backup exclusions, deletion, accessibility, usability, upgrade, catalog notices, and measured baselines. | B2-01–B2-07 | Release checklist passes on each target; no undisclosed network request; signed artifact upgrades without data loss; product limitations documented. | L; PR-01, PR-10–PR-19 |
 
 ## 13. Decisions and open questions
 
@@ -556,10 +580,12 @@ Effort: `S` small, `M` medium, `L` large, `XL` high uncertainty. Dependencies na
 - Use Tauri v2, React/TypeScript/Vite, Rust domain/application logic, `rusqlite`, SQLite FTS5, and Chart.js with an accessible table alternative.
 - Keep user DB and bundled catalog as separate files. Use immutable user snapshots and schedule versions.
 - Store UTC microsecond instants plus original local/zone/offset context and a pinned IANA tzdb version.
-- Make iOS the first release candidate due to mobile-first logging; do not make reminder reliability a release claim until Phase 0 passes. Evaluate Android next, then desktop platforms individually.
-- No DuckDB, backend, accounts, automatic sync, telemetry, runtime medication API, or foreground-timer-only reminders.
+- Treat iOS and Android as the first usability/reliability test targets while keeping Windows and macOS as primary deliverables. Release each independently after its gate passes.
+- Optimize Today and routine Taken/Skip/Undo actions around the intended primary user's needs before adding advanced reporting.
+- No DuckDB, advertising, behavioral analytics, Medtracker account requirement, or foreground-timer-only reminders. A backend is not required unless a later, explicit integration cannot operate without one.
 - Start with OS-protected local storage and an explicitly encrypted user backup; decide on SQLCipher only after threat-model and platform-build assessment.
 - Start catalog ingestion from a pinned current prescribable RxNorm release candidate, subject to explicit coverage and redistribution approval. Keep manual entry as a complete fallback. Do not assume RxTerms is currently available or redistributable.
+- Evaluate Android Health Connect and applicable Google health integration in Phase 0; ship it only if the platform supports useful, consented data exchange without duplicate or medical-meaning ambiguity.
 
 ### Decisions dependent on a prototype
 
@@ -567,10 +593,11 @@ Effort: `S` small, `M` medium, `L` large, `XL` high uncertainty. Dependencies na
 - Whether device-current IANA zone ID can be read consistently and whether the bundled tzdb/OS zone update lifecycle is acceptable.
 - Whether SQLCipher builds cleanly across target mobile and desktop artifacts and whether its licensing/key recovery cost is justified.
 - Which desktop notification integrations, if any, can satisfy the product's reminder expectations.
+- Which Android and Google health data APIs support the intended medication record and whether Tauri requires a maintained native bridge.
 
 ### Decisions requiring product input
 
-- Which initial audience/platform has priority if iOS-first is not representative.
+- Which of iOS or Android is available first for user testing with the intended primary user.
 - Whether the default lock-screen notification should stay generic or allow medication-specific content after explicit opt-in.
 - Which MVP dose units and observation inputs are essential; proposed default is free-form user-selected amount/unit with no conversions or clinical interpretation.
 - Whether users need a non-encrypted CSV by default or should export only after an explicit sensitivity warning.
@@ -582,10 +609,10 @@ Effort: `S` small, `M` medium, `L` large, `XL` high uncertainty. Dependencies na
 
 ### High-impact questions
 
-1. Is iOS a suitable first platform for the intended users, with Android and desktop following as separately validated releases?
+1. Which of iOS or Android should host the first usability prototype with the primary user, while all four platforms remain release targets?
 2. What reminder timing tolerance is acceptable, and should reminders be excluded entirely on targets that cannot pass the feasibility gate?
 3. Is a U.S. prescription-focused catalog acceptable, or must the first release cover OTC/supplement/device entries that may require another source or manual records?
-4. Must the live database itself be encrypted against offline file theft, or is OS device protection plus user-encrypted backups an acceptable MVP boundary?
+4. Is read-only Health Connect/Google health import, write-only export, or both needed, and which record types are valuable?
 5. Which amount units and user-defined observations are essential in the first useful release?
 
 ## Sources
@@ -605,7 +632,7 @@ Official/framework and data-source documentation checked on 2026-11-14:
 - [SQLite foreign keys](https://www.sqlite.org/foreignkeys.html), [WAL](https://www.sqlite.org/wal.html), and [online backup API](https://www.sqlite.org/backup.html) — enforcement setup, sidecar/checkpoint considerations, and consistent database snapshots.
 
 [^tauri-notifications]: The Tauri plugin's platform table lists iOS, Android, Windows, macOS, and Linux; its `Schedule` API reference explicitly says scheduling is mobile-only and desktop notifications are immediate.
-[^tauri-updater]: Tauri documents an optional updater requiring signed update artifacts and configured endpoints. App-store policy and release processes remain independent of offline runtime behavior.
+[^tauri-updater]: Tauri documents an optional updater requiring signed update artifacts and configured endpoints. App-store policy and release processes remain separate from the core local ledger.
 [^rxnorm-overview]: NLM describes RxNorm as normalized drug names/identifiers covering prescription and many OTC drugs in the U.S.; devices, supplements, foods, bulk powders, contrast media, and homeopathics are out of scope.
 [^rxnorm-files]: NLM's current files page lists full RxNorm releases and Current Prescribable Content. As checked 2026-11-14, the current monthly release is dated 2026-11-02; the listing marks Current Prescribable Content as “no license required.” This is a download statement, not a legal determination that every derived redistribution is unrestricted.
 [^rxnorm-terms]: NLM says full monthly/weekly RxNorm releases require a free UMLS license, the full dataset includes proprietary source-vocabulary data, product attribution is requested, and republished/redistributed data must be current or clearly identified as not current. Source-vocabulary restrictions may apply.

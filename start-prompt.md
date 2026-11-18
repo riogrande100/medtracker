@@ -4,7 +4,7 @@ This is a planning task. Do not generate application code yet. Make concrete rec
 
 ## Product concept
 
-An offline-first medication tracking application for mobile and desktop, built with Tauri v2.
+A user-friendly medication tracking application for iOS, Android, Windows, and macOS, built with Tauri v2.
 
 The app lets users:
 
@@ -14,7 +14,7 @@ The app lets users:
 - View clear charts, trends, and historical reports.
 - Export their records for personal use or sharing.
 
-The motivation is to make medication history more transparent and flexible than existing tracking experiences, especially when users travel or change time zones.
+The primary motivation is to make seeing a due medication and recording that it was taken easy for a non-technical user, especially the product owner's wife. Preserve transparent history and flexible time-zone behavior without allowing setup and reporting complexity to obstruct routine use.
 
 This is a logging, scheduling, and reporting tool—not a medical-advice tool. It must not recommend doses, suggest treatment changes, diagnose conditions, assess drug interactions, or imply that recorded patterns establish clinical improvement.
 
@@ -25,18 +25,18 @@ This is a logging, scheduling, and reporting tool—not a medical-advice tool. I
 - A web-based frontend; recommend a practical UI stack and chart library.
 - SQLite as the preferred primary database.
 - Consider DuckDB only if a specific demonstrated requirement justifies it.
-- All personal data stays on the user's device.
-- No accounts, backend, cloud sync, advertising, telemetry, or runtime medication API.
-- No remote fonts, scripts, chart assets, or other runtime network dependencies.
+- Personal records use a local primary database. Network access is permitted for explicit, reviewed features and must not block core local taking/logging during a temporary outage.
+- No Medtracker account requirement, advertising, behavioral analytics, or undisclosed data transfer. A backend must be justified by a concrete integration need.
+- Bundle fonts, scripts, styles, and charts locally; restrict network calls to reviewed, user-visible features.
 - Bundle the medication catalog with the application.
 - Update the catalog only through app releases.
 - Permit manual medication entry.
-- Mobile and desktop are both product goals, but do not assume every platform must ship in the first release.
-- Recommend a platform rollout order and explain it.
+- iOS, Android, Windows, and macOS are primary targets. Recommend staged validation and release order without treating their notification or health capabilities as equivalent.
+- Evaluate Android Health Connect and applicable Google health APIs. Integrations must be optional, separately authorized, provenance-aware, and unable to silently duplicate local dose records.
 - Favor a small, maintainable architecture suitable for an initial solo-developer implementation.
 - Do not invent app-size, performance, or delivery-time guarantees.
 
-Clarify the boundary between “works completely offline” and distribution through app stores or user-initiated application updates. Do not assume an in-app updater is required.
+Do not require the product to be completely offline. Document the network allowlist, consent boundaries, failure behavior, and distinction between local logging and online integrations. Do not assume an in-app updater is required.
 
 ## Core product principles
 
@@ -48,6 +48,7 @@ Clarify the boundary between “works completely offline” and distribution thr
 6. Charts must be descriptive, with clear definitions and visible reporting context.
 7. Data portability and recovery are first-class requirements.
 8. Complexity must be justified by a concrete user need.
+9. Routine dose logging should be understandable and completable from Today with minimal navigation.
 
 ## Time and scheduling requirements
 
@@ -129,7 +130,6 @@ Verify current Tauri v2 notification capabilities separately for:
 - Android.
 - Windows.
 - macOS.
-- Linux.
 
 Do not assume feature parity or that desktop scheduling works like mobile scheduling.
 
@@ -305,7 +305,7 @@ Include:
 - Time-zone and daylight-saving tests.
 - Notification/device tests.
 - Accessibility tests.
-- Offline/network-isolation tests.
+- Network resilience, allowlist, consent, timeout, and health-integration duplicate/revocation tests.
 - Cross-platform UI smoke tests.
 - Release-build size and performance measurements.
 
