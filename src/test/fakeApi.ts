@@ -1,4 +1,4 @@
-import type { Api, AppError, HistoryEntry, MedicationSummary, NextDue, PreviewOccurrence, TodayItem } from "../lib/api";
+import type { Api, AppError, BackupFile, Report, ReportCounts, HistoryEntry, MedicationSummary, NextDue, PreviewOccurrence, TodayItem } from "../lib/api";
 
 /** Minimal in-memory stand-in for the Rust commands; rules are tested in Rust. */
 export const previewRows = (n = 7): PreviewOccurrence[] =>
@@ -15,7 +15,7 @@ export const defaultMed = (): MedicationSummary => ({
   },
 });
 
-export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; olderEntries?: number; meds?: MedicationSummary[]; next?: NextDue | null } = {}): Api {
+export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; olderEntries?: number; meds?: MedicationSummary[]; next?: NextDue | null; backups?: BackupFile[]; report?: Report } = {}): Api {
   const slot = (): TodayItem => ({
     occurrence_id: "o1", schedule_id: "sch1", medication_id: "m1", name: "Metformin", strength: "500 mg", form: "tablet",
     mode: "home_zone", scheduled_at_utc_us: 1_773_151_200_000_000, local_date: "2026-03-10", local_time: "08:00",
@@ -82,5 +82,32 @@ export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; 
     endSchedule: async () => {},
     previewSchedule: async () => previewRows(),
     nextDue: async () => opts.next ?? null,
+    backupFolder: async () => ({ folder: "/Documents/MedTracker Backups", files: opts.backups ?? [] }),
+    createBackup: async () => ({
+      path: "/Documents/MedTracker Backups/MedTracker-backup-2026-03-10-0930.medbackup", file_name: "MedTracker-backup-2026-03-10-0930.medbackup",
+      created_at_utc_us: 1_773_133_800_000_000, medications: 1, doses: 2, schedules: 1, size_bytes: 4096,
+    }),
+    restoreBackup: async () => ({ backup_created_at_utc_us: 1_773_133_800_000_000, medications: 1, doses: 2, schedules: 1, upgraded_from: null, safety_copy_kept: true }),
+    reportRange: async (from, to) => opts.report ?? sampleReport(from, to),
+    exportLedger: async (input) => ({ path: `/Downloads/medtracker-export.${input.format}`, file_name: `medtracker-export.${input.format}`, rows: 6 }),
   };
 }
+
+const zero: ReportCounts = { occurrences: 0, taken: 0, skipped: 0, not_logged: 0, pending: 0, conflicts: 0, unscheduled_taken: 0, unscheduled_skipped: 0 };
+
+/** The spec section 10 fixture numbers. */
+export const sampleReport = (from = "2026-03-07", to = "2026-03-10"): Report => ({
+  from, to, grouping: "Scheduled times are grouped by their own schedule-local date.", reporting_zone: "America/New_York",
+  totals: { ...zero, occurrences: 4, taken: 2, skipped: 1, not_logged: 1, unscheduled_taken: 2 },
+  by_medication: [
+    { medication_id: "a", name: "Daily tablet A", strength: "5 mg", ...zero, occurrences: 4, taken: 2, skipped: 1, not_logged: 1 },
+    { medication_id: "b", name: "As-needed liquid B", strength: "10 mg/mL", ...zero, unscheduled_taken: 2 },
+  ],
+  by_day: [
+    { date: "2026-03-07", ...zero, occurrences: 1, taken: 1 },
+    { date: "2026-03-08", ...zero, occurrences: 1, skipped: 1 },
+    { date: "2026-03-09", ...zero, occurrences: 1, not_logged: 1 },
+    { date: "2026-03-10", ...zero, occurrences: 1, taken: 1, unscheduled_taken: 2 },
+  ],
+  voided_entries: 1, deleted_entries: 0, definitions: ["Counts only; this is not a score."],
+});

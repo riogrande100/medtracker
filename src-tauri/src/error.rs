@@ -15,6 +15,20 @@ pub enum AppError {
     MigrationFailed(String),
     /// SQLite reports the file is damaged or is not a database. It is left untouched.
     CorruptDatabase(String),
+    /// Backup/restore (B2-09). Each failure mode is its own kind so the UI can say exactly what
+    /// happened; every one of them leaves the live database untouched.
+    /// The chosen file is not a MedTracker backup (wrong magic bytes).
+    BackupNotABackup(String),
+    /// The file ends before its header or encrypted data does (an interrupted copy or download).
+    BackupTruncated(String),
+    /// The file uses a backup format or encryption setting this app does not know (made by a newer app).
+    BackupUnsupportedFormat(String),
+    /// The backup holds data from a newer app version than this one can read.
+    BackupNewerSchema(String),
+    /// The passphrase does not match the one the backup was made with.
+    BackupWrongPassphrase(String),
+    /// The passphrase was right but the contents were changed or damaged, or are not a healthy database.
+    BackupCorrupt(String),
 }
 
 impl From<rusqlite::Error> for AppError {

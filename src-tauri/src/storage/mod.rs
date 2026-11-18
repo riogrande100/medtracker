@@ -4,7 +4,7 @@ use crate::error::{AppError, AppResult};
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 
-fn configure(conn: &Connection) -> AppResult<()> {
+pub(crate) fn configure(conn: &Connection) -> AppResult<()> {
     // secure_delete zeroes freed content so redacted notes don't linger in free pages.
     conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;")?;
     Ok(())

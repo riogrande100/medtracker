@@ -21,3 +21,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 jiff = { version = "1", default-features = false, features = ["std", "tzdb-bundle-always"] }
 iana-time-zone = "0.1"
 jiff-tzdb = "1"
+# Encrypted backups (B2-09): RustCrypto password KDF + AEAD, pure Rust, no network, no custom crypto.
+argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc", "getrandom"] }
+zeroize = "1"

@@ -33,6 +33,11 @@ impl Db {
         }
     }
 
+    /// The live database file (backup/restore works on files next to it).
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
     /// True while this launch's pre-upgrade copy (which still contains deleted content) is on disk.
     pub fn upgrade_copy_exists(&self) -> bool {
         self.snapshot.as_ref().is_some_and(|s| s.exists())
@@ -45,7 +50,7 @@ impl Db {
     }
 }
 
-fn with<T>(db: &State<Db>, f: impl FnOnce(&mut Connection) -> AppResult<T>) -> AppResult<T> {
+pub(crate) fn with<T>(db: &State<Db>, f: impl FnOnce(&mut Connection) -> AppResult<T>) -> AppResult<T> {
     if let Some(e) = &db.startup_error {
         return Err(e.clone());
     }

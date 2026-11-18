@@ -160,6 +160,93 @@ export interface HistoryPage {
   next_cursor: HistoryCursor | null;
 }
 
+export interface ReportCounts {
+  occurrences: number;
+  taken: number;
+  skipped: number;
+  /** Earlier day, nothing recorded. Descriptive only. */
+  not_logged: number;
+  /** Today or later, nothing recorded yet. */
+  pending: number;
+  conflicts: number;
+  unscheduled_taken: number;
+  unscheduled_skipped: number;
+}
+export interface ReportMedicationRow extends ReportCounts {
+  medication_id: string;
+  name: string;
+  strength: string | null;
+}
+export interface ReportDayRow extends ReportCounts {
+  date: string;
+}
+export interface Report {
+  from: string;
+  to: string;
+  grouping: string;
+  reporting_zone: string | null;
+  totals: ReportCounts;
+  by_medication: ReportMedicationRow[];
+  by_day: ReportDayRow[];
+  voided_entries: number;
+  deleted_entries: number;
+  definitions: string[];
+}
+export interface ExportOptions {
+  from: string | null;
+  to: string | null;
+  format: "csv" | "json";
+  include_notes: boolean;
+  include_history: boolean;
+}
+export interface ExportResult {
+  path: string;
+  file_name: string;
+  rows: number;
+}
+
+/** Each way a backup can fail is its own kind; all of them leave the data on this device untouched. */
+export type BackupErrorKind =
+  | "backup_not_a_backup"
+  | "backup_truncated"
+  | "backup_unsupported_format"
+  | "backup_newer_schema"
+  | "backup_wrong_passphrase"
+  | "backup_corrupt";
+
+export interface BackupFile {
+  name: string;
+  path: string;
+  size_bytes: number;
+  modified_utc_us: number;
+}
+
+export interface BackupFolder {
+  folder: string;
+  files: BackupFile[];
+}
+
+export interface BackupCreated {
+  path: string;
+  file_name: string;
+  created_at_utc_us: number;
+  medications: number;
+  doses: number;
+  schedules: number;
+  size_bytes: number;
+}
+
+export interface RestoreResult {
+  backup_created_at_utc_us: number;
+  medications: number;
+  doses: number;
+  schedules: number;
+  /** Set when the backup was made by an older version and had to be upgraded. */
+  upgraded_from: number | null;
+  /** A copy of what was on this device before the restore is kept until MedTracker next starts. */
+  safety_copy_kept: boolean;
+}
+
 export type AppErrorKind =
   | "validation"
   | "not_found"
@@ -167,7 +254,8 @@ export type AppErrorKind =
   | "stale_date"
   | "newer_database"
   | "migration_failed"
-  | "corrupt_database";
+  | "corrupt_database"
+  | BackupErrorKind;
 
 export interface AppError {
   kind: AppErrorKind;
@@ -218,6 +306,16 @@ export const api = {
   previewSchedule: (input: ScheduleInput) => invoke<PreviewOccurrence[]>("preview_schedule", { input }),
   /** The next occurrence that hasn't been recorded, which may be on a later day. */
   nextDue: () => invoke<NextDue | null>("next_due"),
+  /** The folder backups are saved to and the backups found there. Nothing is opened. */
+  backupFolder: () => invoke<BackupFolder>("backup_folder"),
+  /** Encrypts a consistent snapshot with the passphrase. The passphrase is never stored; it cannot be recovered. */
+  createBackup: (passphrase: string) => invoke<BackupCreated>("create_backup", { passphrase }),
+  /** Verifies the file in a staging copy first; the current data is replaced only if everything checks out. */
+  restoreBackup: (path: string, passphrase: string) => invoke<RestoreResult>("restore_backup", { path, passphrase }),
+  /** Descriptive counts for an inclusive local date range. */
+  reportRange: (from: string, to: string) => invoke<Report>("report_range", { from, to }),
+  /** Writes a plain CSV/JSON file to the Downloads folder (or Documents / app folder) and says where. */
+  exportLedger: (input: ExportOptions) => invoke<ExportResult>("export_ledger", { input }),
 };
 
 export type Api = typeof api;

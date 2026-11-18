@@ -1,8 +1,10 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { useEffect, useState } from "react";
 import { type Api, type AppError, RECOVERABLE_KINDS, errorKind } from "./lib/api";
+import { BackupView } from "./components/BackupView";
 import { HistoryView } from "./components/HistoryView";
 import { MedicationsView } from "./components/MedicationsView";
+import { ReportsView } from "./components/ReportsView";
 import { TodayView } from "./components/TodayView";
 
 const tab =
@@ -54,11 +56,15 @@ export function App({ api }: { api: Api }) {
         <Tabs.Trigger value="today" className={tab}>Today</Tabs.Trigger>
         <Tabs.Trigger value="history" className={tab}>History</Tabs.Trigger>
         <Tabs.Trigger value="medications" className={tab}>Medications</Tabs.Trigger>
+        <Tabs.Trigger value="backup" className={tab}>Backup</Tabs.Trigger>
+        <Tabs.Trigger value="reports" className={tab}>Reports</Tabs.Trigger>
       </Tabs.List>
       <main className="flex-1 p-4">
         <Tabs.Content value="today"><TodayView {...props} /></Tabs.Content>
         <Tabs.Content value="history"><HistoryView {...props} /></Tabs.Content>
         <Tabs.Content value="medications"><MedicationsView {...props} /></Tabs.Content>
+        <Tabs.Content value="backup"><BackupView api={api} onChanged={changed} /></Tabs.Content>
+        <Tabs.Content value="reports"><ReportsView api={api} version={version} /></Tabs.Content>
       </main>
     </Tabs.Root>
   );

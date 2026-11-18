@@ -1,10 +1,12 @@
 mod application;
+mod backup;
 mod clock;
 mod commands;
 mod domain;
 mod dto;
 mod error;
 mod notifications;
+mod reports;
 mod storage;
 
 #[cfg(test)]
@@ -47,6 +49,11 @@ pub fn run() {
             commands::preview_schedule,
             commands::next_due,
             commands::generate_occurrences,
+            backup::commands::backup_folder,
+            backup::commands::create_backup,
+            backup::commands::restore_backup,
+            reports::commands::report_range,
+            reports::commands::export_ledger,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MedTracker");
