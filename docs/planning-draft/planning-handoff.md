@@ -16,3 +16,7 @@
 
 ## Exact next action
 Edit `product-owner-prompt.md` and `start-prompt.md` to match Amendment A, add the WS mapping table to `product-spec.md`, then run markdown/link checks and fix findings; then report to parent and commit if approved.
+
+## Resolution (2026-11-18)
+
+Superseded by the merge recorded in [../current-state.md](../current-state.md): `docs/product-spec.md` is now one consistent document (Amendment A merged with the user-friendly cross-platform revision; the health-integration ID collision resolved as PR-28), the PO/start prompts were rewritten, the WS-1..WS-9 table is in the spec ("Workstream mapping"), and a link/anchor check was run. Items 1-5 above are done; item 6 (evidence-dependent gates) remains NOT PASSED by design.

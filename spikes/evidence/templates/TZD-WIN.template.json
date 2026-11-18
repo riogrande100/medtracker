@@ -1,0 +1,60 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "TZD-WIN-01"
+  ],
+  "_per_scenario": {
+    "TZD-WIN-01": {
+      "kind": "checklist",
+      "title": "Device zone maps to an IANA identifier for the sample zone set",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "GetDynamicTimeZoneInformation returns Windows names, so the mapping to IANA must be shown for every sample zone.",
+      "checks_keys": [
+        "tz_report_run_on_device",
+        "windows_zone_without_iana_mapping_handled",
+        "automatic_and_manual_selection_tested"
+      ],
+      "numbers_must_equal": {
+        "unresolvable_zone_count": 0
+      }
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "TZD-WIN-01",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "tz_report_run_on_device": null,
+    "windows_zone_without_iana_mapping_handled": null,
+    "automatic_and_manual_selection_tested": null
+  },
+  "numbers": {
+    "unresolvable_zone_count": null
+  },
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "automatic_and_manual_selection_tested",
+    "tz_report_run_on_device",
+    "windows_zone_without_iana_mapping_handled"
+  ],
+  "_all_numbers_keys_in_family": [
+    "unresolvable_zone_count"
+  ]
+}

@@ -1,11 +1,13 @@
+> **SUPERSEDED (2026-11-18).** Historical draft only. The merged, authoritative specification is [../product-spec.md](../product-spec.md). This draft still says `chrono-tz`, an always-empty network allowlist, and has no PR-28; do not use it as a source of truth.
+
 # Medtracker Product Specification and Engineering Roadmap
 
 **Status:** Proposed; reconciled 2026-11-18 against the latest direct product request (see [Amendment A](#amendment-a--authoritative-reconciliation)); no application code is included
 
 **Evidence checked:** 2026-11-14 (external facts were not re-verified during reconciliation; Phase 0 tickets re-verify them)
-**Scope assumption:** U.S.-focused personal medication log; one local data set per device; **iOS, Android, Windows, and macOS are the four primary targets**. No target is ranked ahead of another by assumption; each ships only when its own evidence matrix ([release-evidence.md](release-evidence.md)) is complete. Linux is not a primary target and gates nothing.
+**Scope assumption:** U.S.-focused personal medication log; one local data set per device; **iOS, Android, Windows, and macOS are the four primary targets**. No target is ranked ahead of another by assumption; each ships only when its own evidence matrix ([release-evidence.md](../release-evidence.md)) is complete. Linux is not a primary target and gates nothing.
 
-**Companion documents:** [current-state.md](current-state.md) (baseline) · [backlog.md](backlog.md) (tickets; source of truth for ticket detail) · [registers.md](registers.md) (capabilities, deferred/excluded features, decisions, gates) · [ux-journeys.md](ux-journeys.md) (personas, journeys, Mermaid flows) · [release-evidence.md](release-evidence.md) (per-platform evidence matrices).
+**Companion documents:** [current-state.md](../current-state.md) (baseline) · [backlog.md](../backlog.md) (tickets; source of truth for ticket detail) · [registers.md](../registers.md) (capabilities, deferred/excluded features, decisions, gates) · [ux-journeys.md](../ux-journeys.md) (personas, journeys, Mermaid flows) · [release-evidence.md](../release-evidence.md) (per-platform evidence matrices).
 
 ## Amendment A — authoritative reconciliation
 
@@ -61,7 +63,7 @@ People who want a personal medication history need a trustworthy way to record w
 - A person who wants to record doses, explicit skips, notes, or observations and later inspect or export the raw history.
 - A person who wants reminders but understands that notifications can be denied, delayed, suppressed, or missed.
 
-**Not in the initial scope:** multi-person/caregiver records, shared accounts, clinician workflows, administrator roles (there are no accounts to administer), pharmacy or prescription management, or automatic import from health platforms. Caregiver, family, and provider personas are documented in [ux-journeys.md](ux-journeys.md) as deferred, not designed for.
+**Not in the initial scope:** multi-person/caregiver records, shared accounts, clinician workflows, administrator roles (there are no accounts to administer), pharmacy or prescription management, or automatic import from health platforms. Caregiver, family, and provider personas are documented in [ux-journeys.md](../ux-journeys.md) as deferred, not designed for.
 
 ### Product principles
 
@@ -136,12 +138,12 @@ People who want a personal medication history need a trustworthy way to record w
 | PR-21 | **Undo (Must).** After any Taken/Skip/Log-as-needed action Today shall present an immediately reachable **Undo**, and the same action shall remain available per event from History. Undo voids the event, returns the occurrence to its prior state, and keeps a readable audit entry; it is distinct from privacy delete (PR-06). Changing Taken↔Skip shall be one explicit action, never a silent overwrite. |
 | PR-22 | **Excluded scope (Must).** The product shall contain no account, login, registration, subscription/payment, cloud or arbitrary sync, advertising, analytics, telemetry, crash upload, or clinical claim (diagnosis, dosing advice, interaction checks, efficacy). No release gate shall depend on an external service being reachable at runtime. |
 | PR-23 | **Network allowlist (Must).** The runtime network allowlist (§9) is empty by default. Any addition requires a decision-register entry, security review, CSP/capability change, updated egress test, and privacy-disclosure update. |
-| PR-24 | **Four primary targets (Must).** iOS, Android, Windows, and macOS are the primary targets. Each has its own evidence matrix in [release-evidence.md](release-evidence.md); a matrix cell is "passed" only with a linked evidence artifact. Linux is non-primary and gates no release. |
+| PR-24 | **Four primary targets (Must).** iOS, Android, Windows, and macOS are the primary targets. Each has its own evidence matrix in [release-evidence.md](../release-evidence.md); a matrix cell is "passed" only with a linked evidence artifact. Linux is non-primary and gates no release. |
 | PR-25 | **Catalog licensing gate (Must for catalog distribution).** No catalog data or derivative shall be bundled in a distributed build until GT-LIC passes (§6). Manual entry shall remain fully functional regardless. |
 | PR-26 | **Accent color (Could).** Settings shall let the user pick an accent from a bundled preset list. Accent shall apply to primary CTAs, focus, and selected controls only; destructive actions stay visually distinct; every preset shall meet WCAG 2.2 AA contrast in light and dark; state is never conveyed by color alone. |
 | PR-27 | **Usability evidence (Must for release).** Release of a target requires stakeholder usability evidence that representative non-technical participants complete Today → identify due → Taken/Skip → Undo unaided (GT-UX, NOT PASSED — evidence-dependent). The protocol and success threshold are set in B1-10 and approved by the product owner before testing; no threshold is invented here. |
 
-Priority key used in the backlog: **Must** (release-blocking), **Should**, **Could**. Process requirements (review separation, model-cost tiers, CI cost) are governance rules in [backlog.md](backlog.md#governance-rules), not product requirements.
+Priority key used in the backlog: **Must** (release-blocking), **Should**, **Could**. Process requirements (review separation, model-cost tiers, CI cost) are governance rules in [backlog.md](../backlog.md#governance-rules), not product requirements.
 
 ## 3. User journeys and information architecture
 
@@ -149,7 +151,7 @@ Priority key used in the backlog: **Must** (release-blocking), **Should**, **Cou
 
 Use a responsive shell with four primary destinations:
 
-1. **Today** — the launch screen and primary experience. Sections: Due now, Upcoming, Recorded, Earlier not logged; each occurrence card carries Taken and Skip; a persistent Undo for the latest action; Log as needed; a clear permission/reminder status. Full flows and states are in [ux-journeys.md](ux-journeys.md).
+1. **Today** — the launch screen and primary experience. Sections: Due now, Upcoming, Recorded, Earlier not logged; each occurrence card carries Taken and Skip; a persistent Undo for the latest action; Log as needed; a clear permission/reminder status. Full flows and states are in [ux-journeys.md](../ux-journeys.md).
 2. **History** — event timeline and filters by medication, event type, range, and reporting zone.
 3. **Reports** — descriptive charts, metric definitions, date range, and zone selector.
 4. **Medications** — catalog/manual add, medication details, schedules, pause/resume/discontinue.
@@ -159,7 +161,7 @@ Settings is a secondary destination reachable from the navigation/header: time d
 ### Journeys
 
 - **First launch:** explain local-only storage and no account (there is no sign-in); disclose that system notifications and OS backups are separate; request no permission until a user enables reminders; offer catalog/manual add. Onboarding is skippable and ends on Today.
-- **Today core loop (primary journey):** launch → Today → identify the Due now card → tap **Taken** or **Skip** → see the card move to Recorded with an Undo → optionally Undo. Step-level detail, empty/error states, and Mermaid flows: [ux-journeys.md](ux-journeys.md).
+- **Today core loop (primary journey):** launch → Today → identify the Due now card → tap **Taken** or **Skip** → see the card move to Recorded with an Undo → optionally Undo. Step-level detail, empty/error states, and Mermaid flows: [ux-journeys.md](../ux-journeys.md).
 - **Add medication:** search the bundled catalog by normalized/display name, brand, ingredient, strength, or form; show source/release and the distinction between product strength and amount entered per event. If not found, choose manual entry. Store a snapshot and optional custom display name.
 - **Create a schedule:** choose “follows this device's current time zone,” “fixed in a selected home time zone,” or “fixed elapsed interval anchored at [instant].” Preview upcoming instants with zone abbreviations/offsets and explain DST policies. The preview is descriptive; it never tells the user to change medication use.
 - **Log now:** select the medication, enter an optional amount and unit plus note/observation, confirm the event time in the current zone, and save. No reminder is required.
@@ -374,7 +376,7 @@ See §9 for the normative table. The architecture implication: no HTTP client, u
 
 Build platform artifacts from pinned Rust/Node dependencies, include a software bill of materials and catalog provenance (once GT-LIC passes), and test the actual installed release package on each target (not only a dev build). Keep signing keys outside the repository. App-store delivery, desktop installer download, and optional updater checks are distinct from offline app operation. Tauri's updater is an optional signed-update mechanism with configured endpoints, not a requirement; **the MVP ships without an updater** (D-09) so the allowlist stays empty.[^tauri-updater]
 
-Per-target distribution mechanisms are **candidates to verify in Phase 3**, not decisions: iOS and Android via their respective stores/TestFlight-style beta channels; Windows and macOS via store or direct-download packages with the signing/notarization steps each vendor requires. Signing, notarization, developer-program enrollment, and store review are human-owned, cost-bearing gates (GT-SIGN, GT-STORE: NOT PASSED — evidence-dependent). See [release-evidence.md](release-evidence.md).
+Per-target distribution mechanisms are **candidates to verify in Phase 3**, not decisions: iOS and Android via their respective stores/TestFlight-style beta channels; Windows and macOS via store or direct-download packages with the signing/notarization steps each vendor requires. Signing, notarization, developer-program enrollment, and store review are human-owned, cost-bearing gates (GT-SIGN, GT-STORE: NOT PASSED — evidence-dependent). See [release-evidence.md](../release-evidence.md).
 
 **CI cost policy (Recommendation, reversible — D-08):** target-neutral logic (Rust domain/time/storage tests, TypeScript tests, markdown/link checks) runs on the cheapest available runner on every change; this is a convenience for pure logic and does **not** make Linux a target or a gate. Per-target builds (iOS, Android, Windows, macOS) run on demand/pre-release, path-filtered where possible, because mobile and macOS runners are the expensive ones; a target's release evidence must come from a real build and install of that target regardless of where logic tests ran.
 
@@ -485,7 +487,7 @@ Rules:
 - The allowlist covers **app runtime** behavior. These are outside it by design and are not app network features: the maintainer's build-time catalog download (only after GT-LIC); the user obtaining the installer or an update through a store or direct download; and user-initiated hand-off of an export/backup file to the OS share sheet or file picker (the OS, not the app, performs any transfer).
 - CSP and Tauri capability/permission files grant no remote origin and no HTTP, updater, or remote-capable plugin. The exact CSP form for Tauri's internal IPC/asset origins (which are not network endpoints) is verified in B0-07/B1-01 rather than assumed here.
 - Adding an entry requires: a decision-register entry; product-owner and security review; the minimum-scope origin; updated CSP/capabilities; an updated egress test (B2-12); and updated privacy disclosure. Account, analytics, telemetry, crash-upload, sync, ad, and clinical-API endpoints are **never** eligible (PR-22).
-- Evidence: an egress capture while exercising the full journey set (including Today → Taken/Skip → Undo, export, backup, restore) with a network blocker active shows zero DNS/HTTP attempts. NOT PASSED until captured per target (see [release-evidence.md](release-evidence.md)).
+- Evidence: an egress capture while exercising the full journey set (including Today → Taken/Skip → Undo, export, backup, restore) with a network blocker active shows zero DNS/HTTP attempts. NOT PASSED until captured per target (see [release-evidence.md](../release-evidence.md)).
 
 ### Privacy, backup, deletion, and recovery summary
 
@@ -557,7 +559,7 @@ Use synthetic records only:
 
 ## 11. Phased roadmap
 
-Effort is relative (`S` small, `M` medium, `L` large, `XL` substantial uncertainty), not a calendar estimate. Phases 0–4 are the only delivery phases. Ticket-level detail (owner/model tier, file ownership, acceptance, tests, review gates, dependencies) is in [backlog.md](backlog.md); this section states objectives, exit gates, and deferrals. **Phases overlap by dependency, not by calendar:** a ticket starts when its own listed dependencies are done, not when the previous phase's exit gate passes, except where a gate is named as a dependency. Design review and usability-protocol work run in parallel with Phase 1 engineering and never block it.
+Effort is relative (`S` small, `M` medium, `L` large, `XL` substantial uncertainty), not a calendar estimate. Phases 0–4 are the only delivery phases. Ticket-level detail (owner/model tier, file ownership, acceptance, tests, review gates, dependencies) is in [backlog.md](../backlog.md); this section states objectives, exit gates, and deferrals. **Phases overlap by dependency, not by calendar:** a ticket starts when its own listed dependencies are done, not when the previous phase's exit gate passes, except where a gate is named as a dependency. Design review and usability-protocol work run in parallel with Phase 1 engineering and never block it.
 
 Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact exists yet; **PASSED** is allowed only with a link to the evidence artifact. All gates below are NOT PASSED at the time of this document.
 
@@ -567,7 +569,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 - **Deliverables:** four-target build/install baseline; iOS and Android native notification prototype on physical devices; Windows/macOS notification-feasibility spike; native current-zone discovery spike; DST behavior tests; catalog provenance/redistribution decision; storage/backup/encryption decision; egress-check harness and CSP baseline; Phase 0 evidence synthesis with a go/no-go per platform.
 - **Requirements:** PR-02, PR-03, PR-07, PR-11, PR-13, PR-16, PR-17, PR-18, PR-22, PR-23, PR-24, PR-25.
 - **Dependencies:** none. Throwaway spike code lives only under `spikes/` and is never imported by product code.
-- **Major tasks:** B0-00 … B0-08 in [backlog.md](backlog.md). Execute §8 spike; inspect current NLM release data and license with the source owner/specialist; test `chrono-tz` versioning and local-zone bridge; evaluate per-app backup exclusion; verify Rust/Node/Tauri builds per target; choose the default DB encryption stance.
+- **Major tasks:** B0-00 … B0-08 in [backlog.md](../backlog.md). Execute §8 spike; inspect current NLM release data and license with the source owner/specialist; test `chrono-tz` versioning and local-zone bridge; evaluate per-app backup exclusion; verify Rust/Node/Tauri builds per target; choose the default DB encryption stance.
 - **Acceptance:** each primary target has either a build/install evidence record or an explicit "blocked: <host/device/account missing>" record; all scheduled-notification scenarios that were run have collected evidence and a go/no-go decision per platform; the catalog decision is written; timezone gap/fold/zone-change behavior passes deterministic tests; the egress harness exists and shows zero connections for the baseline spike app.
 - **Risks/mitigations:** notification or catalog ambiguity blocks feature promises—narrow the release or hold the catalog; native zone ID unavailable—defer `device_local` scheduling and constrain modes; encryption/build complexity—start with OS protections and a separate threat-driven SQLCipher decision; missing hardware (Windows host, Android/iOS devices, developer accounts)—record as a blocker and a human action, never substitute emulators for gate evidence.
 - **Exit gate (G0):** product owner accepts, per platform, the reminder scope, catalog provenance status, and privacy/recovery stance based on evidence. **G0 gates reminder adapters (B2-06) and release claims, not Phase 1 engineering.**
@@ -579,7 +581,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 - **Deliverables:** Tauri shell with typed commands and empty-allowlist CSP; per-app SQLite DB/migrations; manual medication creation with snapshots; minimal schedule (daily/weekday wall-clock slots, `device_local` and `home_zone`) with occurrence materialization and DST policy; event ledger with explicit occurrence linking, void/undo, and correction history; Today screen; accessible history timeline; design foundation; core-loop automated tests; usability protocol.
 - **Requirements:** PR-01, PR-02, PR-03 (create/end), PR-04, PR-05, PR-06, PR-07, PR-08 (partial), PR-11, PR-12, PR-15, PR-17, PR-19, PR-20, PR-21, PR-22, PR-23.
 - **Dependencies:** B0-01 (build baseline for the targets being developed on), B0-04 (time engine findings), B0-05 default (OS-protected storage, reversible). Not dependent on the catalog, notification spike, or any mockup approval.
-- **Major tasks:** B1-01 … B1-10 in [backlog.md](backlog.md).
+- **Major tasks:** B1-01 … B1-10 in [backlog.md](../backlog.md).
 - **Acceptance:** Given an offline install, a user can add a manual medication and daily schedule, open Today, see the due occurrence, tap Taken, tap Undo, tap Skip, and change Skip→Taken; restart preserves all values; History shows original/current time context; the PR-19–PR-21 Given/When/Then criteria pass as automated tests; the egress harness shows no connection.
 - **Risks/mitigations:** ambiguous Today states—explicit text labels and tests; time bugs—independent time-semantics review; catalog legal gate delayed—manual add is complete; usability unknown—protocol written now, execution is a Phase 3 gate.
 - **Exit gate (G1):** all Phase 1 acceptance tests pass on every target that has a build baseline; independent code, time, and UX-heuristic reviews recorded; known target gaps listed as blockers. Physical-device and stakeholder-usability evidence is **not** required for G1 and stays NOT PASSED.
@@ -591,7 +593,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 - **Deliverables:** immutable schedule versions with edit/pause/resume/end and elapsed-interval mode; zone-aware outcome reports and charts with table alternatives; CSV/JSON export; encrypted backup/restore; settings/privacy surfaces (permissions, deletion, display zone, about/disclaimer); catalog pipeline on synthetic fixtures (real bundle only after GT-LIC); reminder adapter for each mobile platform that passed G0; accent-color presets; network-isolation test suite.
 - **Requirements:** PR-01–PR-15, PR-17, PR-19–PR-23, PR-25, PR-26.
 - **Dependencies:** Phase 1 ledger and Today; G0 for reminder adapters; GT-LIC for real catalog data only.
-- **Major tasks:** B2-01 … B2-12 in [backlog.md](backlog.md).
+- **Major tasks:** B2-01 … B2-12 in [backlog.md](../backlog.md).
 - **Acceptance:** fixture expectations in §10 match exactly; restore tests pass; permission denial degrades without blocking logging; no chart conflates missing and skipped; reminder adapter produces no dose event; the egress check passes; the core loop still passes its Phase 1 tests.
 - **Risks/mitigations:** native scheduling varies—ship reminders only on platforms that passed; restore/cipher failures—test staged restore and key loss; report ambiguity—publish denominators and table exports; scope creep—accent colors are the first item cut.
 - **Exit gate (G2):** requirement-level tests plus independent code/time/security/accessibility-heuristic reviews recorded; product review approves data portability, report definitions, and each platform's reminder statement.
@@ -599,11 +601,11 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 
 ### Phase 3 — hardening and release readiness
 
-- **Objective:** make each primary target releasable, understandable, and supportable. Phase 3 work is done per target; a target ships when **its** evidence matrix in [release-evidence.md](release-evidence.md) is complete, regardless of other targets.
+- **Objective:** make each primary target releasable, understandable, and supportable. Phase 3 work is done per target; a target ships when **its** evidence matrix in [release-evidence.md](../release-evidence.md) is complete, regardless of other targets.
 - **Deliverables:** accessibility audit with assistive technology per target; stakeholder usability study; security/privacy review; performance/size baselines; backup/restore/upgrade/deletion recovery tests; signing, notarization, and store proofs-of-concept; release pipeline for targets that qualify; release checklist; legal/intended-use/store-disclosure review.
 - **Requirements:** PR-01, PR-02, PR-10–PR-13, PR-15–PR-18, PR-24, PR-25, PR-27.
 - **Dependencies:** Phase 2 acceptance; GT-LIC for catalog inclusion; human-owned accounts, devices, and reviewers.
-- **Major tasks:** B3-01 … B3-10 in [backlog.md](backlog.md).
+- **Major tasks:** B3-01 … B3-10 in [backlog.md](../backlog.md).
 - **Acceptance:** on each releasing target: installed release package works offline; upgrade and restore retain expected records; accessibility and offline suites pass with recorded evidence; physical-device, usability, signing, and store gates each have artifacts; catalog notices ship only if the catalog ships; measured size/performance recorded without unsupported guarantees.
 - **Risks/mitigations:** store policy/review or source-data issue—review early and retain manual entry fallback; update fails—rollback snapshot and export path; logs reveal sensitive data—automated redaction tests; human gates slip—release that target later, do not waive the gate.
 - **Exit gate (G3, per target):** release checklist complete for that target, all its matrix cells passed with artifacts, product owner sign-off.
@@ -615,7 +617,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 - **Deliverables:** completed per-target adapters, packages, and support matrices; Windows/macOS reminder integration only if B0-06 and a later spike justify it; optional chart/export improvements; localization beyond the initial locale; decision on an optional updater (would add an allowlist entry, so requires D-09 review).
 - **Requirements:** PR-01, PR-03, PR-09, PR-13, PR-15–PR-17, PR-24, PR-26.
 - **Dependencies:** stable core domain and migrations; per-target Phase 0/notification evidence; no synchronization assumed.
-- **Major tasks:** B4-01 … B4-06 in [backlog.md](backlog.md).
+- **Major tasks:** B4-01 … B4-06 in [backlog.md](../backlog.md).
 - **Acceptance:** each target's release package passes offline, data integrity, accessibility, restore, and target-specific notification criteria; unsupported capabilities are disclosed and not silently emulated.
 - **Risks/mitigations:** platform drift and notification parity—adapters and explicit target gates; separate device histories surprise users—make no-sync behavior prominent and provide deliberate transfer via backup file.
 - **Exit gate (G4):** each primary target has reached G3 or has a recorded, product-owner-accepted reason it has not.
@@ -625,7 +627,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 
 ## 12. Initial implementation backlog
 
-The detailed backlog (owner/model tier, file ownership, acceptance criteria, tests, review gates, dependencies) is [backlog.md](backlog.md), which is the source of truth for ticket detail. This index exists so the roadmap and requirement IDs can be cross-checked. Effort: `S` small, `M` medium, `L` large, `XL` high uncertainty.
+The detailed backlog (owner/model tier, file ownership, acceptance criteria, tests, review gates, dependencies) is [backlog.md](../backlog.md), which is the source of truth for ticket detail. This index exists so the roadmap and requirement IDs can be cross-checked. Effort: `S` small, `M` medium, `L` large, `XL` high uncertainty.
 
 | Phase | Tickets |
 |---|---|
@@ -635,11 +637,11 @@ The detailed backlog (owner/model tier, file ownership, acceptance criteria, tes
 | 3 | B3-01 accessibility audit per target · B3-02 stakeholder usability study (GT-UX) · B3-03 performance/size baselines · B3-04 security/privacy review · B3-05 signing/notarization proof (GT-SIGN) · B3-06 store readiness (GT-STORE) · B3-07 recovery/upgrade/deletion tests · B3-08 release pipeline · B3-09 legal/intended-use review (GT-LEGAL) · B3-10 release checklist and evidence compilation |
 | 4 | B4-01 close remaining target gaps · B4-02 desktop reminders (conditional) · B4-03 additional schedule patterns (research-gated) · B4-04 localization · B4-05 optional updater decision · B4-06 Linux evaluation (only if requested; non-primary) |
 
-Requirement coverage by ticket is listed in [backlog.md](backlog.md#requirement-traceability).
+Requirement coverage by ticket is listed in [backlog.md](../backlog.md#requirement-traceability).
 
 ## 13. Decisions and open questions
 
-The full decision register (with IDs D-01…, reversibility, owner, and linked tickets), capability register, excluded/deferred-feature register, and gate register are in [registers.md](registers.md). Summary:
+The full decision register (with IDs D-01…, reversibility, owner, and linked tickets), capability register, excluded/deferred-feature register, and gate register are in [registers.md](../registers.md). Summary:
 
 ### Recommended decisions
 

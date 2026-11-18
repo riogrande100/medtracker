@@ -1,3 +1,4 @@
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useEffect, useState } from "react";
 import { type Api, type DoseKind, type HistoryEntry, errorMessage } from "../lib/api";
 import { formatLocal, formatOffset, medLabel } from "../lib/format";
@@ -48,6 +49,31 @@ function CorrectDialog({ api, entry, onClose, onSaved }: { api: Api; entry: Hist
   );
 }
 
+/** Permanent privacy deletion. Deliberately worded and styled differently from Undo. */
+function DeleteEntryDialog({ entry, onConfirm }: { entry: HistoryEntry; onConfirm: () => void }) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger asChild>
+        <Button variant="danger">Delete permanently<span className="sr-only"> {entry.name} entry</span></Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 bg-black/40" />
+        <AlertDialog.Content className="fixed inset-x-3 top-6 mx-auto max-w-md rounded-xl bg-white p-5 shadow-lg">
+          <AlertDialog.Title className="text-xl font-semibold">Permanently delete this entry's details?</AlertDialog.Title>
+          <AlertDialog.Description className="my-3">
+            This erases the note and the saved before-and-after details of every change to this {entry.name} entry. A marker stays in
+            History saying an entry was deleted. This is not Undo: it can't be reversed or restored.
+          </AlertDialog.Description>
+          <div className="flex gap-2">
+            <AlertDialog.Cancel asChild><Button className="flex-1">Keep it</Button></AlertDialog.Cancel>
+            <AlertDialog.Action asChild><Button variant="danger" className="flex-1" onClick={onConfirm}>Delete details permanently</Button></AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
+  );
+}
+
 export function HistoryView({ api, version, onChanged }: { api: Api; version: number; onChanged: () => void }) {
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [editing, setEditing] = useState<HistoryEntry | null>(null);
@@ -57,9 +83,10 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
     api.listHistory().then(setEntries, (e) => setMessage(errorMessage(e)));
   }, [api, version]);
 
-  async function undo(e: HistoryEntry) {
+  async function run(fn: () => Promise<void>) {
     try {
-      await api.undoDose(e.event_id);
+      await fn();
+      setMessage("");
       onChanged();
     } catch (err) {
       setMessage(errorMessage(err));
@@ -78,14 +105,18 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
       ) : (
         <ul className="space-y-3">
           {entries.map((e) => (
-            <li key={e.event_id} className={`rounded-xl border border-neutral-300 p-4 ${e.undone ? "bg-neutral-100" : "bg-white"}`}>
+            <li key={e.event_id} className={`rounded-xl border border-neutral-300 p-4 ${e.undone || e.deleted ? "bg-neutral-100" : "bg-white"}`}>
               <p className="text-lg font-semibold">
-                {medLabel(e.name, e.strength)} — {e.undone ? "Undone" : e.kind === "take" ? "Taken" : "Skipped"}
+                {medLabel(e.name, e.strength)} — {e.deleted ? "Deleted" : e.undone ? "Undone" : e.kind === "take" ? "Taken" : "Skipped"}
               </p>
               <p>{formatLocal(e.current_local)}{e.slot_time ? ` (scheduled ${e.slot_time})` : " (not tied to a schedule)"}</p>
               <p className="text-sm text-neutral-700">
                 Originally entered as {formatLocal(e.original_local)} {formatOffset(e.original_offset_seconds)}
+                {e.original_zone_id ? ` (${e.original_zone_id})` : ""}
               </p>
+              {e.deleted && (
+                <p className="text-sm">Details permanently deleted. Only this marker remains.</p>
+              )}
               {e.note && <p className="text-sm">Note: {e.note}</p>}
               {e.revisions.length > 0 && (
                 <details className="mt-2">
@@ -93,7 +124,7 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
                   <ol className="space-y-1 text-sm">
                     {e.revisions.map((r) => (
                       <li key={r.revision_number}>
-                        {r.reason === "undo" ? "Undone" : "Corrected"}
+                        {{ undo: "Undone", restore: "Restored", delete: "Details permanently deleted", correction: "Corrected" }[r.reason]}
                         {r.before && r.after && (
                           <span className="block font-mono text-xs text-neutral-700">{r.before} → {r.after}</span>
                         )}
@@ -102,10 +133,17 @@ export function HistoryView({ api, version, onChanged }: { api: Api; version: nu
                   </ol>
                 </details>
               )}
-              {!e.undone && (
-                <div className="mt-2 flex gap-2">
-                  <Button onClick={() => setEditing(e)}>Correct<span className="sr-only"> {e.name} entry</span></Button>
-                  <Button onClick={() => undo(e)}>Undo<span className="sr-only"> {e.name} entry</span></Button>
+              {!e.deleted && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {e.undone ? (
+                    <Button onClick={() => run(() => api.restoreDose(e.event_id))}>Restore<span className="sr-only"> {e.name} entry</span></Button>
+                  ) : (
+                    <>
+                      <Button onClick={() => setEditing(e)}>Correct<span className="sr-only"> {e.name} entry</span></Button>
+                      <Button onClick={() => run(() => api.undoDose(e.event_id))}>Undo<span className="sr-only"> {e.name} entry</span></Button>
+                    </>
+                  )}
+                  <DeleteEntryDialog entry={e} onConfirm={() => run(() => api.deleteDoseEntry(e.event_id))} />
                 </div>
               )}
             </li>

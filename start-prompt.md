@@ -1,10 +1,12 @@
-Act as a senior product architect, Rust/Tauri engineer, and UX designer. Create an implementation-ready product specification and phased engineering roadmap for the application described below.
+Act as a senior product architect, Rust/Tauri engineer, and UX designer. Create or revise an implementation-ready product specification and phased engineering roadmap for the application described below.
 
-This is a planning task. Do not generate application code yet. Make concrete recommendations, explain important tradeoffs, and distinguish verified framework capabilities from assumptions that need a technical spike.
+**Status of this brief:** the merged specification in `docs/product-spec.md` is authoritative and supersedes this brief wherever they differ; read `docs/README.md` and `docs/current-state.md` first. A Phase 1 vertical slice already exists in the repository and is not accepted evidence. Reuse the stable requirement IDs (PR-xx), decision IDs (D-xx), gate names (G0-G4, GT-*), and ticket IDs (Bx-xx) already defined in `docs/`; do not invent new ones that collide.
+
+This brief is for the planning task: do not generate application code when asked only to plan or revise documents. Implementation work follows `docs/backlog.md`. Make concrete recommendations, explain important tradeoffs, and distinguish verified framework capabilities from assumptions that need a technical spike.
 
 ## Product concept
 
-A user-friendly medication tracking application for iOS, Android, Windows, and macOS, built with Tauri v2.
+A user-friendly medication tracking application for iOS, Android, Windows, and macOS, built with Tauri 2, a Rust core, and a React/TypeScript/Vite frontend. The local SQLite ledger is the source of truth.
 
 The app lets users:
 
@@ -20,23 +22,25 @@ This is a logging, scheduling, and reporting tool—not a medical-advice tool. I
 
 ## Constraints and preferred stack
 
-- Tauri v2.
+- Tauri 2.
 - Rust application/domain logic.
-- A web-based frontend; recommend a practical UI stack and chart library.
+- A React/TypeScript/Vite frontend; recommend a practical chart library.
+- A Geist-inspired visual language with locally bundled fonts and assets.
 - SQLite as the preferred primary database.
 - Consider DuckDB only if a specific demonstrated requirement justifies it.
-- Personal records use a local primary database. Network access is permitted for explicit, reviewed features and must not block core local taking/logging during a temporary outage.
-- No Medtracker account requirement, advertising, behavioral analytics, or undisclosed data transfer. A backend must be justified by a concrete integration need.
+- Personal records use a local SQLite primary database. Web access is permitted only for explicit, reviewed features through a documented runtime network allowlist (currently empty) and must never block local logging, correction, or history during an outage or integration failure.
+- No Medtracker account, authentication, registration, subscription, advertising, analytics, telemetry, arbitrary cloud sync, dose recommendations, interaction checking, clinical claims, or undisclosed data transfer. A backend must be justified by a concrete integration need.
 - Bundle fonts, scripts, styles, and charts locally; restrict network calls to reviewed, user-visible features.
 - Bundle the medication catalog with the application.
 - Update the catalog only through app releases.
 - Permit manual medication entry.
-- iOS, Android, Windows, and macOS are primary targets. Recommend staged validation and release order without treating their notification or health capabilities as equivalent.
-- Evaluate Android Health Connect and applicable Google health APIs. Integrations must be optional, separately authorized, provenance-aware, and unable to silently duplicate local dose records.
+- iOS, Android, Windows, and macOS are primary targets. No target is first by assumption (not iOS-first, not Linux-first). Recommend staged validation and release order from per-platform evidence without treating their notification or health capabilities as equivalent.
+- HealthKit and Android Health Connect / Google health are optional, separately authorized feasibility work that must not block the MVP. Integrations must be provenance-aware and unable to silently duplicate local dose records, and an external platform's acceptance never proves a dose was taken.
+- Model policy for delegated work: Haiku 5.5 for mechanical and documentation tasks, Sonnet 5.5 for standard implementation, and Sonnet 5.5 with high reasoning for DST/time-zone, backup, security, and architecture.
 - Favor a small, maintainable architecture suitable for an initial solo-developer implementation.
 - Do not invent app-size, performance, or delivery-time guarantees.
 
-Do not require the product to be completely offline. Document the network allowlist, consent boundaries, failure behavior, and distinction between local logging and online integrations. Do not assume an in-app updater is required.
+Do not require the product to be completely offline, but keep the MVP's runtime allowlist empty. Document the network allowlist, consent boundaries, failure behavior, and distinction between local logging and online integrations. Do not assume an in-app updater is required.
 
 ## Core product principles
 
@@ -62,7 +66,7 @@ Separate:
 - The scheduled occurrence, if any.
 - The schedule version that applied.
 
-Evaluate a model that preserves UTC instants, IANA time-zone identifiers, and the original UTC offset where appropriate.
+Evaluate a model that preserves UTC instants, IANA time-zone identifiers, and the original UTC offset where appropriate. Prefer a time-zone engine whose bundled tzdb is current (a Phase 0 spike found `chrono-tz` 0.10.4 bundles stale tzdb 2025b; `jiff` 1.x is the recommended engine) and record the tzdb version per occurrence.
 
 Explicitly distinguish schedule semantics:
 
@@ -100,7 +104,7 @@ Define how chart day boundaries and schedule-based reporting work in each case.
 
 ## Medication catalog requirements
 
-Evaluate RxTerms/RxNorm-derived data as a starting point for a U.S.-focused release.
+Evaluate RxNorm-derived data (and confirm, rather than assume, RxTerms availability) as a starting point for a U.S.-focused release. No catalog may be bundled before the catalog licensing gate (GT-LIC) passes.
 
 Verify, rather than assume:
 
@@ -319,9 +323,11 @@ Break the work into:
 
 - Phase 0: feasibility and risk reduction.
 - Phase 1: smallest useful vertical slice.
-- Phase 2: MVP completion.
-- Phase 3: hardening and first release.
-- Phase 4: additional platforms and improvements.
+- Phase 2: complete MVP.
+- Phase 3: native integrations, hardening, and first release.
+- Phase 4: cross-platform parity and improvements.
+
+These are the only delivery phases. Product-owner work areas are workstreams (WS-1 to WS-9) mapped into Phases 0-4 in `docs/product-spec.md`. Evidence-dependent gates (devices, usability, licensing, signing, stores) stay NOT PASSED until an artifact exists.
 
 For every phase include:
 
@@ -376,4 +382,4 @@ End with no more than five high-impact questions whose answers would materially 
 - Avoid generic boilerplate and unnecessary architectural patterns.
 - Proceed with explicitly stated provisional assumptions instead of blocking the whole specification on unanswered questions.
 - Keep the specification and roadmap internally consistent.
-- Do not generate application code yet.
+- Do not generate application code when the task is documentation or planning only.

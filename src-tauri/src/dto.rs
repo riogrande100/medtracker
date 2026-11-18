@@ -93,12 +93,19 @@ pub struct HistoryEntry {
     pub name: String,
     pub strength: Option<String>,
     pub kind: DoseKind,
+    /// Soft-undone (reversible). False for deleted tombstones.
     pub undone: bool,
+    /// Privacy-deleted tombstone: note and revision payloads are gone; cannot be restored.
+    pub deleted: bool,
     pub occurred_at_utc_us: i64,
     pub entered_at_utc_us: i64,
     pub original_local: String,
     pub original_offset_seconds: i32,
+    /// IANA zone the entry was recorded in; None when only a fixed offset was known.
+    pub original_zone_id: Option<String>,
     pub current_local: String,
+    /// Offset in force at the entry's (possibly corrected) instant.
+    pub current_offset_seconds: i32,
     pub note: Option<String>,
     pub slot_time: Option<String>,
     pub revisions: Vec<Revision>,

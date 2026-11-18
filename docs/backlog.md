@@ -1,9 +1,9 @@
 # MedTracker Backlog (Phases 0–4)
 
-**Status:** Planning artifact. No ticket below is accepted as Done. The baseline on this branch has no application code ([current-state.md](current-state.md)); a **parallel, unreviewed branch** (`riogrande100-medtracker-phase1-slice`) contains partial Phase 1 code. Per governance rule 5 below, that code counts toward a ticket only after the ticket's tests and independent reviews pass.
+**Status:** Planning artifact. No ticket below is accepted as Done. A Phase 1 vertical slice (Tauri 2 + React/TypeScript/Vite + Rust, SQLite migrations, snapshots, ledger, History) already exists on `main` ([current-state.md](current-state.md)); it is a candidate starting point, not accepted work. Per governance rule 5 below, that code counts toward a ticket only after the ticket's tests and independent reviews pass, and four independent-review findings against it are being fixed first (see Phase 1 introduction).
 **Governs with:** [product-spec.md](product-spec.md) (requirements `PR-xx`, phases, gates) · [registers.md](registers.md) (decisions `D-xx`, gates `GT-xx`) · [release-evidence.md](release-evidence.md).
 
-The primary experience this backlog optimizes: a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** (PR-19–PR-21). Four primary targets: iOS, Android, Windows, macOS (PR-24). Excluded: accounts, auth, subscriptions, sync, ads, analytics, clinical claims (PR-22).
+The primary experience this backlog optimizes: a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** (PR-19–PR-21). Four primary targets: iOS, Android, Windows, macOS (PR-24). Excluded: accounts, auth, subscriptions, arbitrary sync, ads, analytics, dose recommendations, interaction checking, clinical claims (PR-22). Local SQLite is the source of truth and connectivity loss never blocks local logging (PR-01); the runtime network allowlist is currently empty (PR-23). Optional health-platform work is feasibility-only and non-blocking (PR-28, B0-09, B4-07).
 
 ## Governance rules
 
@@ -11,12 +11,12 @@ The primary experience this backlog optimizes: a non-technical user opens **Toda
 
 | Tier | Who | Use for | Do not use for |
 |---|---|---|---|
-| **T1** | Lightweight Claude (Haiku-class) subagent | Docs, formatting, fixtures, evidence-table filling, link/lint runs, mechanical refactors, validation scripts | Anything where a wrong answer is silent and costly (time math, crypto, security) |
-| **T2** | Mid-tier Claude (Sonnet-class) subagent | Well-specified implementation and tests, UI components, repositories, adapters, independent code review | Open-ended architecture or threat modeling |
-| **T3** | Premium-reasoning Claude, used sparingly | Time-semantics engine and its review, security/privacy/backup-crypto review, UX analysis of the core loop, phase-exit synthesis | Routine implementation, formatting, boilerplate |
+| **T1** | Haiku 5.5 subagent | Docs, formatting, fixtures, evidence-table filling, link/lint runs, mechanical refactors, validation scripts | Anything where a wrong answer is silent and costly (time math, crypto, security) |
+| **T2** | Sonnet 5.5 subagent | Well-specified implementation and tests, UI components, repositories, adapters, independent code review | Open-ended architecture or threat modeling |
+| **T3** | Sonnet 5.5 with high reasoning, used sparingly | DST/time-zone engine and its review, backup and crypto, security/privacy review, architecture, UX analysis of the core loop, phase-exit synthesis | Routine implementation, formatting, boilerplate |
 | **H** | Human | Physical-device runs, accounts and enrollment, signing keys, store submission, legal/specialist review, stakeholder usability sessions | — |
 
-Default is T1/T2. A ticket may use T3 only where its **Owner** line says so. Model names are tiers, not pinned versions; the runtime picks the current model of that class.
+**Model policy (D-18):** Haiku 5.5 (T1), Sonnet 5.5 (T2), and Sonnet 5.5 with high reasoning (T3). Default is T1/T2. T3 is required for DST/time-zone, backup, security, and architecture work and may be used elsewhere only where a ticket's **Owner** line says so.
 
 ### Review separation
 
@@ -31,6 +31,7 @@ Default is T1/T2. A ticket may use T3 only where its **Owner** line says so. Mod
 - Every path is owned by exactly one ticket at a time (see the map below). Others change it only through the owner's follow-up ticket or an append-only integration edit flagged in review.
 - **Append-only integration points** (parallel tickets may add lines, never reorder or rewrite): `src-tauri/src/commands/mod.rs` registration list, `src-tauri/src/lib.rs` module list, `src-tauri/Cargo.toml` `[dependencies]`, `package.json` `dependencies`, `src/app/routes.ts`. Every new dependency is justified in the PR and checked against the §6 criteria and the empty network allowlist.
 - Migrations are numbered files in `src-tauri/migrations/`; the owning ticket is named in the file header. Reserved: `0001` B1-02 (core schema per spec §5 except observation and notification bookkeeping); `0002` B2-11 (observation); `0003` B2-06 (notification bookkeeping). Later numbers are allocated in the ticket that needs them.
+- Path names in the ownership map are the planned layout. The Phase 1 slice on `main` uses its own layout (for example `src-tauri/src/storage/sql/` for migrations); the B1-01/B1-02 audits either adopt that layout and update this map, or move the code. Until then the map is intent, not a description of the tree.
 - Spike code lives only in `spikes/<ticket>/` and is never imported by product code. Evidence lives in `docs/evidence/<ticket>/`.
 
 ### Planned repository layout and owners
@@ -79,8 +80,10 @@ flowchart LR
     B001 --> B005[B0-05 privacy decision]
     B001 --> B006[B0-06 desktop notif spike]
     B001 --> B007[B0-07 egress harness]
+    B001 --> B009[B0-09 optional health feasibility]
     B003[B0-03 catalog license]
     B002 & B003 & B004 & B005 & B006 & B007 --> B008[B0-08 G0 synthesis]
+    B009 -. non-blocking .-> B008
   end
   subgraph P1[Phase 1 core loop]
     B101[B1-01 shell]:::cp --> B102[B1-02 SQLite]:::cp --> B103[B1-03 medications]:::cp
@@ -114,6 +117,7 @@ flowchart LR
   B109 --> B302
   B209 & B212 --> B304
   B310 --> B401[B4-01 remaining targets]
+  B009 -. optional .-> B407[B4-07 health integration]
   classDef cp stroke-width:3px,stroke:#000;
 ```
 
@@ -157,6 +161,7 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 **Phase 0 · Must · L · PR-03, PR-04, PR-07** · **Owner:** T3 designs and reviews; T2 implements · **Depends on:** B0-01 (zone probe per target); Rust-only tests need nothing
 **Files:** `spikes/B0-04/**`, `docs/evidence/B0-04/**`
 - **Acceptance:** deterministic tests reproduce every §4 worked example (travel modes, New York 2026-03-08 gap, 2026-11-01 fold, date-line); tzdb version captured; native current-zone lookup on each target returns a valid IANA ID or a recorded "unsupported" result; recommendation for whether `device_local` mode is promised per target.
+- **Known finding to carry in (D-04a):** the Phase 0 spike found that `chrono-tz` 0.10.4 bundles tzdb 2025b, stale against IANA 2026f. The ticket evaluates `jiff` 1.x with bundled tzdb as the engine, records the reported tzdb version, and re-checks currency at pin time. This is a library finding, not a device result.
 - **Tests:** table-driven Rust tests (fixed vectors in the evidence file); native probe log per target.
 - **Review:** RV-TIME.
 
@@ -188,47 +193,63 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 - **Tests:** RV-DOC consistency pass across all docs.
 - **Review:** RV-HUMAN (product-owner acceptance) → **G0**.
 
+### B0-09 — Optional health-platform feasibility (non-blocking)
+**Phase 0 · Could · M · PR-28, PR-01, PR-05** · **Owner:** T3 research; **H** authorizes and runs devices · **Depends on:** B0-01 · **Requires separate user authorization before any work starts**
+**Files:** `docs/evidence/B0-09/**`, `spikes/B0-09/**` (if a prototype is authorized)
+- **Acceptance:** a written go/no-go per platform for HealthKit (iOS) and Android Health Connect / Google health: supported data types, whether medication records can be read or written at all, permissions and consent, OS/version requirements, whether the integration is on-device or needs the network (and so needs a PR-23 allowlist entry), whether Tauri needs a native bridge, duplicate/provenance handling, and revocation. Un-run device checks are marked **not run**. Platform acceptance of a record is documented as not proving a dose was taken.
+- **Tests:** none required for a document-only outcome; any prototype is throwaway under `spikes/B0-09/`.
+- **Review:** RV-SEC, RV-HUMAN. **Does not block G0, Phase 1, Phase 2, or any release.**
+
 ---
 
 ## Phase 1 — the Today core loop
 
-Phase 1 tickets need their listed dependencies only; none waits on the catalog, notification spike, mockups, or G0. Existing code on `riogrande100-medtracker-phase1-slice` (Rust `application/ledger.rs`, `application/medication.rs`, `storage/sql/001_initial.sql`, React `TodayView`/`HistoryView`/`MedicationsView`, Vitest and Rust tests) is a **candidate starting point** for B1-01…B1-08; the audit must check it against these tickets (notably: a schedule/occurrence engine with IANA zones, the `voided` undo semantics, immutable versions, and the explicit occurrence link are required here, and its own notes say device-local zone handling and notifications are stubs).
+Phase 1 tickets need their listed dependencies only; none waits on the catalog, notification spike, mockups, or G0. The Phase 1 slice already on `main` (Rust `application/ledger.rs`, `application/medication.rs`, SQLite migrations, React Today/History/Medications views, Vitest and Rust tests) is a **candidate starting point** for B1-01…B1-08. Its own handoff records 8/8 UI tests and 10/10 Rust tests passing, which is not acceptance. The audit must check it against these tickets (notably: a schedule/occurrence engine with IANA zones, the `voided` undo semantics, immutable versions, and the explicit occurrence link are required here; device-local zone handling and notifications are stubs).
+
+Four independent-review findings against the slice are being fixed and are folded into the tickets below as acceptance items, not separate scope:
+
+| Finding (severity) | Owning ticket |
+|---|---|
+| Backdated/corrected wall times use the current-day offset instead of the offset for the entered date, giving wrong instants across DST (high) | B1-04, B1-05 (RV-TIME) |
+| Today is not refreshed at midnight, on resume/focus, or when an item becomes due; stale slot-linked dates are not rejected in Rust (medium) | B1-06 |
+| Upgrades lack a pre-migration snapshot and `integrity_check`, and there is no recoverable UI state for migration/newer-database failures (medium) | B1-02 |
+| Undo is soft/reversible but per-event privacy deletion is missing (redact notes and revision payloads, record a tombstone) (medium) | B1-05 |
 
 ### B1-01 — Tauri shell, typed command boundary, empty-allowlist CSP
 **Phase 1 · Must · M · PR-01, PR-15, PR-17, PR-22, PR-23** · **Owner:** T2 · **Depends on:** B0-01 (soft: B0-07 CSP findings)
 **Files:** see ownership map (shell/config/ipc/`ci.yml`)
-- **Acceptance:** React+TypeScript+Vite app launches offline on each target with a build baseline; a typed command round-trip works; no raw-SQL or generic-execute command; CSP and capabilities grant no remote origin; no HTTP/updater/analytics dependency; `ci.yml` runs target-neutral tests and doc checks.
+- **Acceptance:** React+TypeScript+Vite app launches with the network blocked on each target with a build baseline; a typed command round-trip works; no raw-SQL or generic-execute command; CSP and capabilities grant no remote origin; no HTTP/updater/analytics dependency; `ci.yml` runs target-neutral tests and doc checks.
 - **Tests:** command round-trip test; dependency scan asserts no network-capable plugin; CSP assertion test.
 - **Review:** RV-CODE, RV-SEC.
 
 ### B1-02 — SQLite schema, repository foundation, migrations
 **Phase 1 · Must · L · PR-11, PR-12** · **Owner:** T2 · **Depends on:** B1-01 (interim D-15 baseline)
-- **Acceptance:** per-app `user-data.sqlite` created in the platform data dir; migration `0001` implements spec §5 tables for medication, schedule, occurrence, event (incl. `status active/voided/deleted`), revision (incl. `kind`), preferences; `foreign_keys=ON` per connection; `user_version` migrations in a transaction; pre-migration snapshot via backup API/`VACUUM INTO`; integrity and foreign-key checks; failed migration keeps the original.
+- **Acceptance:** per-app `user-data.sqlite` created in the platform data dir; migration `0001` implements spec §5 tables for medication, schedule, occurrence, event (incl. `status active/voided/deleted`), revision (incl. `kind`), preferences; `foreign_keys=ON` per connection; `user_version` migrations in a transaction; pre-migration snapshot via backup API/`VACUUM INTO`; integrity and foreign-key checks; failed migration keeps the original; migration failure and newer-database cases reach a recoverable UI state (not a blank crash).
 - **Tests:** invalid FK/CHECK rejected; rollback; migration failure injection; reopen preserves rows; no-downgrade refusal.
 - **Review:** RV-CODE.
 
 ### B1-03 — Medication snapshots and manual entry
 **Phase 1 · Must · M · PR-02** · **Owner:** T2 · **Depends on:** B1-02
 - **Acceptance:** create/edit/archive a manual medication; each edit makes a new immutable `medication_version`; historical display fields preserved; product strength shown separately from amount-per-event help text; no dose calculation; catalog fields nullable and unused.
-- **Tests:** version immutability; archive keeps history; manual add works offline.
+- **Tests:** version immutability; archive keeps history; manual add works with the network blocked.
 - **Review:** RV-CODE, RV-UX (add-medication path).
 
 ### B1-04 — Schedule v1 and occurrence engine (wall-clock)
 **Phase 1 · Must · XL · PR-03 (create/end), PR-07, PR-08 (partial)** · **Owner:** T3 design + RV-TIME; T2 implements · **Depends on:** B1-03, B0-04
-- **Acceptance:** create a schedule for a medication with one or more daily/weekday wall-clock slots in `device_local` or `home_zone`, previewing the next seven occurrences with zone abbreviation/offset; immutable `schedule_version`; occurrences materialized per version with local date/time, zone, offset, fold, UTC instant, tzdb version; DST gap → one occurrence at first valid instant marked adjusted; fold → one occurrence at earlier offset; at most one occurrence per slot per local date; end schedule creates a closing version without backfill. Edit/pause/resume and elapsed-interval mode are **out of scope** (B2-03).
+- **Acceptance:** create a schedule for a medication with one or more daily/weekday wall-clock slots in `device_local` or `home_zone`, previewing the next seven occurrences with zone abbreviation/offset; immutable `schedule_version`; occurrences materialized per version with local date/time, zone, offset, fold, UTC instant, tzdb version; wall times (including backdated and corrected entries) are resolved with the IANA rules for the entered date, never the current-day offset; DST gap → one occurrence at first valid instant marked adjusted; fold → one occurrence at earlier offset; at most one occurrence per slot per local date; end schedule creates a closing version without backfill. Edit/pause/resume and elapsed-interval mode are **out of scope** (B2-03).
 - **Tests:** the §4 and §10 fixtures (including `2026-03-08T07:00:00Z`); date-line; occurrence uniqueness; end-schedule no backfill.
 - **Review:** RV-TIME, RV-CODE.
 
 ### B1-05 — Event ledger: take/skip, linking, undo, corrections
 **Phase 1 · Must · L · PR-04, PR-05, PR-06, PR-08, PR-20, PR-21** · **Owner:** T2; T3 for RV-TIME · **Depends on:** B1-03, B1-04
-- **Acceptance:** record take/skip events with separate `occurred_at_utc` and `entered_at_utc`, original local/zone/offset, optional amount (mantissa+scale)/note; explicit link to an occurrence on card action; **undo = `status voided` + `void` revision retaining values**; Taken↔Skip change is one transaction with no moment of two active events; restore-from-void; correction creates a revision; privacy delete tombstones without retaining values; conflicting active take+skip surfaced as conflict; as-needed events without occurrence.
+- **Acceptance:** record take/skip events with separate `occurred_at_utc` and `entered_at_utc`, original local/zone/offset, optional amount (mantissa+scale)/note; explicit link to an occurrence on card action; **undo = `status voided` + `void` revision retaining values**; Taken↔Skip change is one transaction with no moment of two active events; restore-from-void; correction creates a revision; privacy delete is a separate per-event action that redacts notes and revision payloads and records a tombstone; conflicting active take+skip surfaced as conflict; as-needed events without occurrence.
 - **Tests:** PR-04/05/06/20/21 Given/When/Then from the spec; transaction atomicity; backdated event `2026-01-15T08:00:00-05:00` → `2026-01-15T13:00:00Z`; delete leaves no values in revision.
 - **Review:** RV-CODE, RV-TIME.
 
 ### B1-06 — Today screen (core loop UI)
 **Phase 1 · Must · L · PR-19, PR-20, PR-21, PR-15** · **Owner:** T2; T3 for RV-UX · **Depends on:** B1-04, B1-05, B1-07
 **Files:** `application/today.rs`, `commands/today.rs`, `src/features/today/**`
-- **Acceptance:** Today is the launch screen; derives Due now / Upcoming / Recorded / Earlier-not-logged from stored occurrences and events (spec invariants 8–10); card shows medication name, strength, scheduled local time and zone context where it differs from device zone; **Taken** and **Skip** are single taps with large touch targets; Undo is persistent after an action and always reachable; Log as needed for as-needed medications; empty, loading, and error states per [ux-journeys.md](ux-journeys.md); permission/reminder status line that never claims delivery; no word "missed"/"overdue"; state conveyed by text and icon, not color alone.
+- **Acceptance:** Today is the launch screen; derives Due now / Upcoming / Recorded / Earlier-not-logged from stored occurrences and events (spec invariants 8–10); card shows medication name, strength, scheduled local time and zone context where it differs from device zone; **Taken** and **Skip** are single taps with large touch targets; Undo is persistent after an action and always reachable; Log as needed for as-needed medications; Today refreshes at local midnight, on resume/focus, and when an occurrence becomes due, and Rust rejects stale slot-linked dates; empty, loading, and error states per [ux-journeys.md](ux-journeys.md); permission/reminder status line that never claims delivery; no word "missed"/"overdue"; state conveyed by text and icon, not color alone.
 - **Tests:** component tests per state; the PR-19/20/21 Given/When/Then as automated tests against a real in-memory/temp DB; keyboard-only completion of the loop; screen-reader label assertions.
 - **Review:** RV-UX, RV-A11Y, RV-CODE.
 
@@ -260,7 +281,7 @@ Phase 1 tickets need their listed dependencies only; none waits on the catalog, 
 
 ---
 
-## Phase 2 — MVP completion
+## Phase 2 — complete MVP
 
 ### B2-01 — Catalog pipeline on synthetic fixtures
 **Phase 2 · Must · L · PR-01, PR-02, PR-17, PR-25** · **Owner:** T2 · **Depends on:** B1-01
@@ -270,7 +291,7 @@ Phase 1 tickets need their listed dependencies only; none waits on the catalog, 
 
 ### B2-02 — Catalog bundle and search UI (GT-LIC-gated)
 **Phase 2 · Should · M · PR-02, PR-25** · **Owner:** T2 · **Depends on:** B2-01, B1-03, **GT-LIC passed**
-- **Acceptance:** search by name/ingredient/strength/form offline; selection creates a snapshot; "no longer current" note for retired entries; attribution/currentness text in About; without GT-LIC the feature is flag-off and absent from distributed builds.
+- **Acceptance:** search by name/ingredient/strength/form with no network; selection creates a snapshot; "no longer current" note for retired entries; attribution/currentness text in About; without GT-LIC the feature is flag-off and absent from distributed builds.
 - **Tests:** search latency measured on the real file; snapshot unchanged after catalog swap; build-flag test.
 - **Review:** RV-CODE, RV-HUMAN (licensing artifacts).
 
@@ -337,7 +358,7 @@ Phase 1 tickets need their listed dependencies only; none waits on the catalog, 
 
 ---
 
-## Phase 3 — hardening and release readiness (per target)
+## Phase 3 — native integrations, hardening, and first release (per target)
 
 Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and recorded in that target's matrix in [release-evidence.md](release-evidence.md). All Phase 3 gates are **NOT PASSED — evidence-dependent** until artifacts exist.
 
@@ -395,7 +416,7 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 
 ---
 
-## Phase 4 — remaining platforms and improvements
+## Phase 4 — cross-platform parity and improvements
 
 ### B4-01 — Close remaining target gaps
 **Phase 4 · Must · L · PR-24** · **Owner:** T2 + H · **Depends on:** B3-10 for the first released target; per-target Phase 3 tickets for the rest
@@ -417,6 +438,12 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 **Phase 4 · Could · S · PR-23** · **Owner:** T3 · **Depends on:** B3-10
 - **Acceptance:** decision record; adopting an updater adds an allowlist entry and requires the PR-23 process, or the decision is "stores/installers only".
 
+### B4-07 — Optional health integration (conditional)
+**Phase 4 · Could · XL · PR-28, PR-01, PR-05, PR-23** · **Owner:** T2; T3 for RV-SEC · **Depends on:** B0-09 go verdict, separate user authorization, B3-10
+- **Acceptance:** built only if B0-09 returned go for that platform and the product owner authorizes it; explicit per-platform authorization and revocation; imported records carry source/provenance and require user-reviewed duplicate decisions before becoming ledger events; export is explicit; platform acceptance is never labeled a verified dose; failure, denial, or revocation leaves Today, logging, and history fully usable; any network endpoint passes the PR-23 allowlist process first. Otherwise closed as won't-do.
+- **Tests:** duplicate-candidate, revoked-authorization, adapter-failure-leaves-ledger-unchanged, and "no adapter writes a take event" tests.
+- **Review:** RV-SEC, RV-CODE, RV-HUMAN.
+
 ### B4-06 — Linux evaluation (only if requested)
 **Phase 4 · Could · M · —** · **Owner:** T2 · **Depends on:** explicit product request
 - **Acceptance:** non-primary; gates nothing; adds no CI cost to primary targets.
@@ -427,7 +454,7 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 
 | Requirement | Tickets |
 |---|---|
-| PR-01 | B1-01, B1-09, B2-01, B2-12, B3-04 |
+| PR-01 | B1-01, B1-09, B2-01, B2-12, B3-04, B0-09, B4-07 |
 | PR-02 | B1-03, B2-01, B2-02, B0-03 |
 | PR-03 | B1-04, B2-03, B4-03 |
 | PR-04 | B1-05, B2-11, B0-04 |
@@ -449,10 +476,11 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 | PR-20 | B1-05, B1-06, B1-09 |
 | PR-21 | B1-05, B1-06, B1-08, B1-09 |
 | PR-22 | B0-07, B1-01, B2-08, B2-12, B3-04 |
-| PR-23 | B0-07, B1-01, B2-12, B4-05 |
+| PR-23 | B0-07, B1-01, B2-12, B4-05, B4-07 |
 | PR-24 | B0-01, B0-08, B3-05, B3-06, B3-08, B3-10, B4-01 |
 | PR-25 | B0-03, B2-01, B2-02, B3-09 |
 | PR-26 | B1-07, B2-10 |
 | PR-27 | B1-10, B3-02 |
+| PR-28 | B0-09, B4-07 |
 
-Every PR-01–PR-27 appears at least once. Governance, cost, and review-separation rules are in this document and are not product requirements.
+Every PR-01–PR-28 appears at least once. Governance, cost, and review-separation rules are in this document and are not product requirements.

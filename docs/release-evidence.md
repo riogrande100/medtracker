@@ -1,6 +1,6 @@
 # MedTracker Release Evidence Matrices
 
-**Status at baseline (2026-11-18): every cell below is NOT PASSED — evidence-dependent.** No build, device run, signing, store, usability, or legal artifact exists for any target ([current-state.md](current-state.md)).
+**Status at baseline (2026-11-18): every cell below is NOT PASSED — evidence-dependent.** A Phase 1 slice exists on `main` and its handoff records host-side test results (8/8 UI tests, 10/10 Rust tests), but no device, installed-package, signing, store, usability, or legal artifact exists for any target ([current-state.md](current-state.md)). Host-side unit tests are not evidence for any cell below.
 
 Cell values: **Not passed** (no artifact), **Blocked: <reason>** (author-set), **Passed — <artifact link>** (reviewer-set only; see [backlog.md](backlog.md#review-separation)). Simulator, emulator, and VM runs are recorded as such and **never** satisfy a physical-device or real-host cell. Release order among iOS, Android, Windows, and macOS is decided only from these matrices (PR-16, PR-24); no target is ahead by assumption; Linux is not part of them.
 
@@ -13,11 +13,11 @@ A target is releasable (G3) only when **every** applicable row for that target i
 | 1 | Clean-checkout build and install of the release configuration | PR-24 | B0-01, B3-08 | Not passed | Not passed | Not passed | Not passed |
 | 2 | Real device / real host launch and app-data path recorded | GT-DEV-* | B0-01 | Not passed (physical device) | Not passed (physical device) | Not passed (real host) | Not passed (real host) |
 | 3 | Core loop on target: Today → Taken → Undo; Skip → Undo; Taken↔Skip; restart persistence | PR-19–PR-21 | B1-09 | Not passed | Not passed | Not passed | Not passed |
-| 4 | Offline egress capture shows zero connections; allowlist empty | PR-01, PR-23, GT-NET | B0-07, B2-12 | Not passed | Not passed | Not passed | Not passed |
+| 4 | Network-isolation: egress capture shows zero connections while the allowlist is empty; core loop works with the network blocked | PR-01, PR-23, GT-NET | B0-07, B2-12 | Not passed | Not passed | Not passed | Not passed |
 | 5 | Accessibility audit with the target's assistive technology | PR-15, GT-A11Y | B3-01 | Not passed (VoiceOver) | Not passed (TalkBack) | Not passed (keyboard + Windows screen reader) | Not passed (keyboard + VoiceOver) |
 | 6 | Stakeholder usability on this form factor | PR-27, GT-UX | B3-02 | Not passed | Not passed | Not passed | Not passed |
 | 7 | Scheduled-reminder evidence and verdict (full / best-effort / in-app only) | PR-13 | B0-02, B0-06, B2-06 | Not passed | Not passed | Not passed (none promised) | Not passed (none promised) |
-| 8 | Time-zone/DST behavior and native zone probe | PR-03, PR-04, D-22 | B0-04 | Not passed | Not passed | Not passed | Not passed |
+| 8 | Time-zone/DST behavior (engine per D-04a, tzdb version recorded) and native zone probe | PR-03, PR-04, D-04a, D-22 | B0-04 | Not passed | Not passed | Not passed | Not passed |
 | 9 | Privacy: data location, OS-backup behavior, log redaction, notification preview | PR-11, PR-18 | B0-05, B3-04 | Not passed | Not passed | Not passed | Not passed |
 | 10 | Backup, restore, upgrade, failed-migration recovery, full wipe | PR-10–PR-12, GT-REC | B2-09, B3-07 | Not passed | Not passed | Not passed | Not passed |
 | 11 | Performance and size baselines recorded (measurements, no promises) | PR-16 | B3-03 | Not passed | Not passed | Not passed | Not passed |
@@ -27,6 +27,7 @@ A target is releasable (G3) only when **every** applicable row for that target i
 | 15 | Catalog included **only if** GT-LIC passed; otherwise confirmed absent | PR-25, GT-LIC | B0-03, B2-02 | Not passed | Not passed | Not passed | Not passed |
 | 16 | Security review findings dispositioned | PR-22, PR-23 | B3-04 | Not passed | Not passed | Not passed | Not passed |
 | 17 | Release checklist signed off | G3 | B3-10 | Not passed | Not passed | Not passed | Not passed |
+| 18 | Optional health integration (only if built): go/no-go, consent, duplicate and revocation behavior; confirmed absent otherwise. Never blocks a release by itself | PR-28, GT-HEALTH | B0-09, B4-07 | Not passed (optional) | Not passed (optional) | Not applicable | Not applicable |
 
 ## 2. Platform-specific evidence
 
@@ -37,7 +38,7 @@ A target is releasable (G3) only when **every** applicable row for that target i
 | Toolchain and provisioning | Xcode build of the release configuration; provisioning/team requirements documented (Apple developer-program enrollment is a human-owned step) | Not passed |
 | Notifications (UserNotifications) | Spec §8 scenarios on a physical device: locked, foreground, background, terminated, reboot, permission denied/re-enabled, Focus suppression noted, zone change, DST, clock jump; no dose written on tap | Not passed |
 | Backup behavior | What iCloud/device backup does to the app's database and key material, verified by test; exclusion applied where the platform allows | Not passed (unverified) |
-| Distribution | Beta/test channel and store submission path, privacy disclosures matching "no data collected, no network"; costs and renewal recorded | Not passed |
+| Distribution | Beta/test channel and store submission path, privacy disclosures matching actual behavior (currently no data collected, no runtime network); costs and renewal recorded | Not passed |
 | Accessibility | VoiceOver, Dynamic Type, Reduce Motion, contrast, touch targets | Not passed |
 
 ### Android
@@ -81,7 +82,7 @@ A target is releasable (G3) only when **every** applicable row for that target i
 | Update policy: catalog changes only via app releases | Release notes | Not passed |
 | Distributed builds contain no real catalog data until all above pass | Build inspection (PR-25 test) | Not passed |
 
-## 4. Network allowlist verification (empty by default)
+## 4. Network allowlist verification (currently empty)
 
 | Check | Evidence | Status |
 |---|---|---|
@@ -89,6 +90,7 @@ A target is releasable (G3) only when **every** applicable row for that target i
 | No HTTP client, updater, analytics, or sync dependency | Dependency scan | Not passed |
 | Egress capture across the full journey set per target | Capture logs per target | Not passed |
 | Distribution/updates occur through the store or installer, outside the app | Release process doc | Not passed |
+| If an allowlist entry is ever added: register entry, minimum-scope origin, timeout/invalid-response/revoked-consent/retry tests, and proof that local logging still works with that endpoint failing | Register + test logs | Not applicable until an entry exists |
 
 ## 5. Privacy, backup, deletion, and recovery verification
 

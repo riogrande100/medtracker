@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { type Api, type TodayItem, errorMessage } from "../lib/api";
+import { type Api, type TodayItem, errorKind, errorMessage } from "../lib/api";
+import { useTodayRefresh } from "../lib/useTodayRefresh";
 import { formatTime, medLabel } from "../lib/format";
 import { Button } from "./ui";
 import { LogEarlierDialog } from "./LogEarlierDialog";
@@ -29,6 +30,8 @@ export function TodayView({ api, version, onChanged }: { api: Api; version: numb
     void load();
   }, [load, version]);
 
+  useTodayRefresh(items, load);
+
   async function act(run: () => Promise<unknown>, done: string) {
     try {
       await run();
@@ -36,6 +39,8 @@ export function TodayView({ api, version, onChanged }: { api: Api; version: numb
       onChanged();
     } catch (e) {
       setMessage(errorMessage(e));
+      // The day changed under an open screen: show the new day instead of acting on the old one.
+      if (errorKind(e) === "stale_date") void load();
     }
   }
 

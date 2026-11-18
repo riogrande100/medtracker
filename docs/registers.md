@@ -28,8 +28,9 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | Accent color presets | PR-26 | Planned (Could) | Planned (Could) | Planned (Could) | Planned (Could) | 2 · B2-10 |
 | Responsive layout: phone, tablet, desktop window | PR-15 | Planned | Planned | Planned | Planned | 1 · B1-07 |
 | Screen-reader and keyboard accessibility | PR-15 | VoiceOver · Planned | TalkBack · Planned | Narrator/other · Planned; keyboard | VoiceOver · Planned; keyboard | 1 · B1-09; 3 · B3-01 |
-| Offline operation; empty network allowlist | PR-01, PR-23 | Planned | Planned | Planned | Planned | 0 · B0-07; 2 · B2-12 |
-| Accounts, login, subscription, sync, ads, analytics, telemetry | PR-22 | Excluded | Excluded | Excluded | Excluded | — |
+| Core loop works with no connectivity; runtime network allowlist currently empty | PR-01, PR-23 | Planned | Planned | Planned | Planned | 0 · B0-07; 2 · B2-12 |
+| Optional health-platform integration (HealthKit / Android-Google health) | PR-28 | Spike (B0-09), optional | Spike (B0-09), optional | Not applicable | Not applicable | 0 · B0-09; 4 · B4-07; DF-08 |
+| Accounts, login, subscription, arbitrary sync, ads, analytics, telemetry | PR-22 | Excluded | Excluded | Excluded | Excluded | — |
 | Clinical claims (dosing advice, interactions, diagnosis) | PR-22 | Excluded | Excluded | Excluded | Excluded | — |
 
 ## 2. Excluded features (not deferred; no revisit planned)
@@ -42,7 +43,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | EX-04 | Advertising, analytics, telemetry, crash upload | Latest request; privacy posture. |
 | EX-05 | Clinical claims: dose recommendation/calculation, interaction checks, diagnosis, treatment change, adherence coaching, efficacy | Product principle; regulatory exposure. |
 | EX-06 | Blocking external integrations (any release gate depending on a reachable third-party service) | Latest request. |
-| EX-07 | Runtime medication API; remote fonts, scripts, or styles | PR-17, PR-23. |
+| EX-07 | Runtime medication API; remote fonts, scripts, or styles | PR-17, PR-23. (Other web access is allowed only through the reviewed allowlist, currently empty.) |
 | EX-08 | Linux as a primary target, Linux-first development order, Linux-only CI gating | Latest request (D-26). |
 | EX-09 | Prescription creation/refill, image/barcode/pill identification, comprehensive drug information | Spec non-goals. |
 | EX-10 | Administrator role | No accounts exist to administer. |
@@ -58,7 +59,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | DF-05 | Observation charts / co-occurrence overlays | Risk of implied causation. | Descriptive overlay design with non-causality text approved. |
 | DF-06 | Windows/macOS scheduled reminders | Official plugin schedules mobile only; needs native integration. | B0-06 + follow-up spike pass (B4-02). |
 | DF-07 | SQLCipher/database-level encryption | Build, key-management, and licensing cost. | B0-05 shows the threat model requires it. |
-| DF-08 | Optional health-platform integration (for example Android Health Connect), from the sibling docs branch | Optional and non-blocking only; needs consent, provenance, duplicate handling; may or may not use the network. If it needs any endpoint it must pass the PR-23 allowlist process. Proposed ID `PR-28` if approved. | Product decision after Phase 3. |
+| DF-08 | Optional health-platform integration (HealthKit, Android Health Connect / Google health) | Optional, separately authorized, non-blocking (PR-28). Needs consent, provenance, duplicate handling; platform acceptance never proves a dose. If it needs any endpoint it must pass the PR-23 allowlist process. | B0-09 go verdict plus separate user authorization (B4-07). |
 | DF-09 | OTC/supplement/device catalog beyond RxNorm | Source and licensing unknown. | Product input on catalog scope (D-25). |
 | DF-10 | Localization beyond the initial locale | Not needed for core loop. | B4-04. |
 | DF-11 | In-app updater | Would add an allowlist entry; stores/installers cover updates. | B4-05 decision. |
@@ -71,10 +72,11 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 
 | ID | Decision | Type | Reversibility | Evidence / trigger | Tickets |
 |---|---|---|---|---|---|
-| D-01 | Tauri v2, React + TypeScript + Vite, Rust core | Recommended | Moderate (UI framework easy, Tauri/Rust hard) | Phase 0 builds on all four targets | B0-01, B1-01 |
+| D-01 | Tauri 2, React + TypeScript + Vite, Rust core | Recommended | Moderate (UI framework easy, Tauri/Rust hard) | Phase 0 builds on all four targets | B0-01, B1-01 |
 | D-02 | SQLite via `rusqlite`; separate `user-data.sqlite` and read-only `catalog.sqlite`; no DuckDB | Recommended | Hard once users have data | Measured need only | B1-02 |
 | D-03 | Time model: UTC microseconds + IANA zone + offset + original local text + tzdb version | Recommended | Hard | B0-04 vectors | B0-04, B1-04 |
-| D-04 | Phases 0–4 are the only delivery phases; PO prompt phases become workstreams WS-1…WS-9 | Decided (user) | Easy | — | all |
+| D-04 | Phases 0–4 are the only delivery phases; PO prompt phases become workstreams WS-1…WS-9 (mapping table: [product-spec.md](product-spec.md#workstream-mapping)) | Decided (user) | Easy | — | all |
+| D-04a | Time engine: `jiff` 1.x with bundled tzdb, replacing the earlier `chrono-tz` suggestion. Reason: Phase 0 spike found `chrono-tz` 0.10.4 bundles tzdb 2025b, stale against IANA 2026f. Library decision from the spike, not a device claim; currency re-checked at pin time and tzdb version recorded per occurrence | Recommended (spike finding) | Moderate (engine swappable behind `time/`; stored tzdb versions are Hard) | B0-04 vectors | B0-04, B1-04 |
 | D-05 | Four primary targets; no platform first; release order from per-platform evidence | Decided (user) | Easy | Evidence matrices | B0-01, B0-08, B3-10 |
 | D-06 | Excluded: accounts, auth, subscriptions, sync, ads, analytics, clinical claims | Decided (user) | Easy to keep, costly to reverse | — | B1-01, B2-08, B2-12 |
 | D-07 | No mockup approval gate on Phase 1; stakeholder usability evidence is a Phase 3 gate | Decided (user) | Easy | GT-UX | B1-10, B3-02 |
@@ -88,7 +90,7 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 | D-15 | Baseline: OS device protection + sandbox, no SQLCipher; encrypted user backup | Prototype-dependent | Hard after release | B0-05 | B0-05, B2-09 |
 | D-16 | macOS host with iOS simulator is the day-to-day development convenience; confers no release priority | Recommended | Easy | — | B0-01 |
 | D-17 | Reminder scope per target (full / best-effort / in-app only) | Prototype-dependent | Easy | B0-02, B0-06, G0 | B0-08, B2-06 |
-| D-18 | Claude model tiers T1/T2/T3 and author≠reviewer separation | Decided | Easy | — | all |
+| D-18 | Model policy: T1 = Haiku 5.5, T2 = Sonnet 5.5, T3 = Sonnet 5.5 with high reasoning (required for DST/time-zone, backup, security, architecture); author≠reviewer separation | Decided | Easy | — | all |
 | D-19 | Accent presets are Could and the first cut under schedule pressure | Recommended | Easy | — | B2-10 |
 | D-20 | Catalog source candidate: pinned RxNorm Current Prescribable Content release | Specialist review | Easy until bundled | GT-LIC | B0-03 |
 | D-21 | Generic lock-screen notification text by default | Product input (spec recommends generic) | Easy | Product owner | B2-06 |
@@ -97,15 +99,17 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 | D-24 | Essential dose units and observation inputs (default: free-form amount/unit) | Product input | Moderate | Product owner | B1-05, B2-11 |
 | D-25 | U.S. prescription-focused catalog scope acceptable | Product input | Easy | Product owner | B0-03 |
 | D-26 | Linux is non-primary and gates nothing | Decided (user) | Easy | — | B4-06 |
-| D-27 | Runtime network allowlist empty by default; additions follow the PR-23 process | Decided (user) | Easy | B0-07, B2-12 | B0-07, B1-01, B2-12 |
+| D-27 | Web access only for reviewed features via an explicit runtime allowlist, currently empty; additions follow the PR-23 process; connectivity failure never blocks local logging | Decided (user) | Easy | B0-07, B2-12 | B0-07, B1-01, B2-12 |
+| D-28 | HealthKit and Android/Google health are optional, separately authorized feasibility work; they never block the MVP and an external platform's acceptance never proves a dose was taken | Decided (user) | Easy | B0-09 | B0-09, B4-07 |
 
-### Open questions needing the product owner (at most five)
+### Open questions needing the product owner
 
 1. Who provides, and when, the physical iOS and Android devices, a Windows host, a macOS host, and the developer-program/signing accounts for each store? (Without them GT-DEV-* and GT-SIGN/GT-STORE stay NOT PASSED.)
 2. Who are the stakeholder participants for GT-UX and what counts as "unaided success" for a non-technical user?
 3. What reminder timing tolerance is acceptable, and should reminders be omitted on targets that fail their spike?
 4. Is a U.S. prescription-focused catalog acceptable for the first release (D-25)?
 5. Must the live database be encrypted against offline file theft, or are OS protection plus encrypted user backups acceptable (D-15)?
+6. Should optional health-platform integration (B0-09) be authorized at all, and for which platforms and record directions?
 
 ## 5. Gate register
 
@@ -130,3 +134,4 @@ All gates are **NOT PASSED — evidence-dependent** at baseline. A gate flips to
 | GT-SIGN | Signed installable artifact per target; costs/renewal/ownership documented | Signed artifact install record | H | B3-05 |
 | GT-STORE | Distribution channel and disclosures accepted per target | Submission/beta records | H | B3-06 |
 | GT-LEGAL | Intended-use, privacy, disclosure, attribution review | Written specialist review | H specialist | B3-09 |
+| GT-HEALTH | Optional health-platform go/no-go (non-blocking; blocks only a health feature, never the MVP) | Written go/no-go per platform; device runs marked not run until performed | H + T3 | B0-09, B4-07 |

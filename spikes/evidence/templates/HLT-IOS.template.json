@@ -1,0 +1,115 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "HLT-IOS-01",
+    "HLT-IOS-02",
+    "HLT-IOS-03",
+    "HLT-IOS-04"
+  ],
+  "_per_scenario": {
+    "HLT-IOS-01": {
+      "kind": "checklist",
+      "title": "HealthKit availability and authorization states shown without inventing data",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Apple docs say a denial is indistinguishable from no data; the app must show unknown, never 'none taken'.",
+      "checks_keys": [
+        "availability_checked_before_use",
+        "denied_and_empty_both_shown_as_unknown",
+        "limited_window_detected_when_applicable",
+        "app_usable_when_health_unavailable"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0
+      }
+    },
+    "HLT-IOS-02": {
+      "kind": "checklist",
+      "title": "Imported medication dose claims are labeled external and change nothing",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Requires iOS 26+ with Health Medications data. Ledger and occurrence status are unchanged by any import.",
+      "checks_keys": [
+        "per_object_authorization_flow_observed",
+        "taken_claim_shown_as_unverified_external",
+        "skipped_and_pipeline_statuses_not_shown_as_taken"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0,
+        "occurrence_status_changes": 0
+      }
+    },
+    "HLT-IOS-03": {
+      "kind": "checklist",
+      "title": "Write attempt of a medication dose to HealthKit by a third-party app",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "The pages fetched do not establish third-party write support; record the OS result. No write feature is planned.",
+      "checks_keys": [
+        "write_attempt_result_recorded"
+      ]
+    },
+    "HLT-IOS-04": {
+      "kind": "checklist",
+      "title": "Revoked authorization, deleted source data, locked device",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "No crash, no inferred doses, imported items flagged unavailable.",
+      "checks_keys": [
+        "revoked_while_running_no_crash",
+        "previously_imported_marked_unavailable",
+        "locked_device_read_failure_treated_as_unknown"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0
+      }
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "HLT-IOS-01",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "availability_checked_before_use": null,
+    "denied_and_empty_both_shown_as_unknown": null,
+    "limited_window_detected_when_applicable": null,
+    "app_usable_when_health_unavailable": null
+  },
+  "numbers": {
+    "ledger_dose_events_delta": null
+  },
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "app_usable_when_health_unavailable",
+    "availability_checked_before_use",
+    "denied_and_empty_both_shown_as_unknown",
+    "limited_window_detected_when_applicable",
+    "locked_device_read_failure_treated_as_unknown",
+    "per_object_authorization_flow_observed",
+    "previously_imported_marked_unavailable",
+    "revoked_while_running_no_crash",
+    "skipped_and_pipeline_statuses_not_shown_as_taken",
+    "taken_claim_shown_as_unverified_external",
+    "write_attempt_result_recorded"
+  ],
+  "_all_numbers_keys_in_family": [
+    "ledger_dose_events_delta",
+    "occurrence_status_changes"
+  ]
+}

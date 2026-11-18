@@ -4,7 +4,7 @@
 
 **Primary experience:** a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** an accidental action.
 
-No sign-in, registration, subscription, or sync appears anywhere in these flows (PR-22).
+No sign-in, registration, subscription, or sync appears anywhere in these flows (PR-22). The app is local-first: every flow below works with no connectivity, and the runtime network allowlist is currently empty (PR-23). Optional health-platform integration (PR-28) is feasibility-only and has no screen here until it is authorized; if it is ever added, its failure must never hide or block the flows in this document.
 
 ## 1. Personas (scoped)
 
@@ -24,7 +24,7 @@ The persona set is derived from the product brief, not from user research. Wheth
 ```mermaid
 flowchart TD
   A["Launch app"] --> B{"First launch?"}
-  B -- yes --> C["Welcome: data stays on this device, no account"]
+  B -- yes --> C["Welcome: data is stored on this device, no account"]
   C --> D["Add first medication, or skip"]
   D --> T
   B -- no --> T["Today (home)"]
@@ -185,8 +185,8 @@ Each screen lists purpose, user goals, actions, entry/exit points, and error/emp
 
 | Screen | Purpose and goals | Actions | Entry → exit | Empty | Loading | Error |
 |---|---|---|---|---|---|---|
-| **Today** | See what is due; record; undo | Taken, Skip, At a different time, Undo, Change, Log as needed, open card detail | Launch/notification tap/nav → any tab | First run: "Add your first medication" button. Nothing scheduled: "No medications scheduled today" + Log as needed if any. Nothing due: "Nothing due right now", next time shown | Skeleton cards; actions disabled until loaded | "Couldn't load today. Try again." Save failure keeps card in place with message |
-| **Onboarding** | Explain local-only, no account; get to first medication | Continue, Skip | First launch → Today | n/a | n/a | n/a |
+| **Today** | See what is due; record; undo | Taken, Skip, At a different time, Undo, Change, Log as needed, open card detail | Launch/notification tap/nav → any tab | First run: "Add your first medication" button. Nothing scheduled: "No medications scheduled today" + Log as needed if any. Nothing due: "Nothing due right now", next time shown | Skeleton cards; actions disabled until loaded | "Couldn't load today. Try again." Save failure keeps card in place with message. Loss of connectivity never produces an error here: Today does not use the network |
+| **Onboarding** | Explain local-first storage, no account; get to first medication | Continue, Skip | First launch → Today | n/a | n/a | n/a |
 | **Medications list** | Manage medications | Add, open, archive | Nav → detail/add | "No medications yet" + Add | Skeleton | Retry |
 | **Medication add/edit** | Create a snapshot | Save, cancel | Medications → Schedule or Medications | n/a | Catalog search spinner (when licensed) | Field-level validation text |
 | **Schedule editor** | Define when doses are expected | Times, weekdays, zone mode, preview, save, end (edit/pause/resume in Phase 2) | Medication → Medications | Prompt to set a schedule | Preview calculation | "That time doesn't exist on that date" notices show the adjusted time instead of blocking |
@@ -226,7 +226,7 @@ Phone (portrait), low fidelity:
 
 Desktop (Windows/macOS window), low fidelity: a compact side rail with Today / History / Reports / Medications and Settings; Today content in a centered column with the same cards; Taken/Skip/Undo are keyboard-reachable buttons in logical tab order with visible focus; tablet widths use the same single column up to a comfortable reading width, then a two-column Due now / Recorded layout.
 
-High-fidelity mockups and the component library are produced alongside B1-07 and reviewed in parallel; they do not gate engineering. Visual language: Geist-inspired principles (readability, whitespace, focus-driven layouts, low visual noise, fast feedback) implemented with locally bundled assets (D-14). Accent color (PR-26) changes only the accent role; destructive actions stay visually distinct; state is never color alone.
+High-fidelity mockups and the component library are produced alongside B1-07 and reviewed in parallel; they do not gate engineering. Visual language: Geist-inspired principles (readability, whitespace, focus-driven layouts, low visual noise, fast feedback) implemented with locally bundled fonts and assets, never fetched at runtime (PR-17, D-14). Accent color (PR-26) changes only the accent role; destructive actions stay visually distinct; state is never color alone.
 
 ## 10. Writing rules
 
@@ -255,5 +255,6 @@ High-fidelity mockups and the component library are produced alongside B1-07 and
 6. Is the notification/permission state truthful and non-blocking?
 7. After a time-zone change, are schedule and device times distinguishable?
 8. Are empty, loading, and error states present and plain?
+9. Does any screen imply that logging needs an internet connection, or that an external health platform confirmed a dose?
 
 Findings become backlog tickets; GT-UX (real users, pre-approved threshold) is separate and remains **NOT PASSED — evidence-dependent**.

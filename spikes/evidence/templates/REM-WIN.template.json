@@ -1,0 +1,151 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "REM-WIN-00",
+    "REM-WIN-01",
+    "REM-WIN-02",
+    "REM-WIN-03",
+    "REM-WIN-04",
+    "REM-WIN-05",
+    "REM-WIN-06"
+  ],
+  "_per_scenario": {
+    "REM-WIN-00": {
+      "kind": "checklist",
+      "title": "Installed Windows build shows correct app identity for an immediate toast",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Docs say the plugin shows PowerShell name and icon in development and only works for installed apps.",
+      "checks_keys": [
+        "installed_build_shows_app_name_and_icon",
+        "dev_run_identity_recorded",
+        "launches_offline"
+      ]
+    },
+    "REM-WIN-01": {
+      "kind": "checklist",
+      "title": "Plugin schedule on desktop is immediate, not scheduled",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Confirms the app must not route desktop reminders through the plugin schedule option.",
+      "checks_keys": [
+        "scheduled_request_shown_immediately_or_rejected",
+        "behavior_recorded"
+      ]
+    },
+    "REM-WIN-02": {
+      "kind": "timed_delivery",
+      "title": "Native scheduled toast with the app process not running",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "At least 19 of 20 trials within 5 minutes with the app process confirmed not running at fire time. Record whether the app has package identity.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-WIN-03": {
+      "kind": "checklist",
+      "title": "Computer off or asleep beyond the 5-minute window",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Microsoft docs say the toast is dropped; the app must say reminders may not have shown, never that a dose was missed.",
+      "checks_keys": [
+        "drop_after_window_behavior_confirmed",
+        "app_reports_not_delivered_on_next_launch",
+        "no_missed_or_nonadherent_wording"
+      ]
+    },
+    "REM-WIN-04": {
+      "kind": "checklist",
+      "title": "Restart with scheduled toasts pending",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Survival across restart is not established by the docs fetched; record it.",
+      "checks_keys": [
+        "scheduled_toasts_survived_restart",
+        "reconcile_after_restart_creates_no_duplicates"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0
+      }
+    },
+    "REM-WIN-05": {
+      "kind": "checklist",
+      "title": "Schedule edit, time-zone change, and clock change",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "No stale or duplicate toasts after reconcile.",
+      "checks_keys": [
+        "old_toast_removed_via_get_scheduled",
+        "app_detected_zone_or_clock_change",
+        "stale_requests_replaced"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0,
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-WIN-06": {
+      "kind": "checklist",
+      "title": "Notification settings and Focus: suppression is detected or documented",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Informational.",
+      "checks_keys": [
+        "suppression_behavior_recorded",
+        "ledger_usable_when_suppressed"
+      ]
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "REM-WIN-00",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "installed_build_shows_app_name_and_icon": null,
+    "dev_run_identity_recorded": null,
+    "launches_offline": null
+  },
+  "numbers": {},
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "app_detected_zone_or_clock_change",
+    "app_reports_not_delivered_on_next_launch",
+    "behavior_recorded",
+    "dev_run_identity_recorded",
+    "drop_after_window_behavior_confirmed",
+    "installed_build_shows_app_name_and_icon",
+    "launches_offline",
+    "ledger_usable_when_suppressed",
+    "no_missed_or_nonadherent_wording",
+    "old_toast_removed_via_get_scheduled",
+    "reconcile_after_restart_creates_no_duplicates",
+    "scheduled_request_shown_immediately_or_rejected",
+    "scheduled_toasts_survived_restart",
+    "stale_requests_replaced",
+    "suppression_behavior_recorded"
+  ],
+  "_all_numbers_keys_in_family": [
+    "duplicate_deliveries",
+    "stale_deliveries"
+  ]
+}

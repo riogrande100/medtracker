@@ -1,70 +1,81 @@
 # MedTracker Current State (baseline)
 
-**Baseline date:** 2026-11-18 · **Branch:** `riogrande100-reconcile-medtracker-planning` (from `main` @ `8f8d43a`) · **Author scope:** planning/documentation only.
+**Baseline date:** 2026-11-18 · **Branch:** `main` @ `ec55cfa` · **Author scope:** planning/documentation only.
 
-This is a baseline report, not a plan. Facts below were observed in this worktree or via read-only git inspection of sibling branches. Anything not observed is labeled **unverified**.
+This is a baseline report, not a plan. Facts below come from the repository tree, [handoff-2026-11-18-paused.md](handoff-2026-11-18-paused.md), and `spikes/HANDOFF.md`. Anything not observed by an artifact is labeled **unverified**. Product direction is in [product-spec.md](product-spec.md#authoritative-product-direction); this file records only what exists.
 
 ## 1. What exists on `main`
 
 | Item | State |
 |---|---|
-| `README.md` | Two lines: title and "A simple private medication tracker." |
-| `LICENSE` | Apache License 2.0 text. |
-| `.gitignore` | Rust-oriented (Cargo, rustfmt, mutants, ICE dumps, RustRover); no Node/Tauri-generated entries. |
-| `docs/product-spec.md` | ~86 KB planning spec, evidence dated 2026-11-14, PR-01–PR-18, Phases 0–4, backlog B0-01…B3-01. Originally iOS-first and fully offline. |
-| `start-prompt.md` | The original planning prompt (spec-generation brief). |
-| `product-owner-prompt.md` | Product-owner brief with Phases 1–9, Linux-first CI, authentication/subscription/sync flows, and a mockup-approval gate. |
-| Application code | **None** on `main`: no `Cargo.toml`, `package.json`, `src/`, or `src-tauri/`. |
-| CI | **None**: no `.github/` directory. |
-| Tests / builds | **None** on `main`. |
-| Releases, signing, store accounts | **None known.** |
+| Planning documents | [product-spec.md](product-spec.md) (merged, authoritative), [backlog.md](backlog.md), [registers.md](registers.md), [ux-journeys.md](ux-journeys.md), [release-evidence.md](release-evidence.md), this file, and `docs/planning-draft/` (history only). Evidence in the spec was checked 2026-11-14 and not re-verified. |
+| Phase 1 vertical slice | **Exists on `main`** (integrated from the 92-file branch `riogrande100-medtracker-phase1-slice`): Tauri 2, React/TypeScript/Vite, locally bundled Geist fonts, Tailwind and Radix; a Rust command/application/storage boundary; SQLite migrations (`src-tauri/src/storage/sql/001_initial.sql`); immutable medication snapshots and manual medication entry; a local dose ledger with Taken, explicit Skip, backdating, correction revisions, history, undo, medication archive and deletion; accessible Today and History surfaces; a native-reminder adapter **stub**; an empty runtime network allowlist baseline and local-only UI copy. |
+| Host test results (per the handoff, not re-run for this document) | `npm ci`, `npm run typecheck`, `npm run build` passed; `npm test` 8/8 UI tests; `cargo test` 10/10 Rust tests. `npm ci` reported six high-severity dependency audit findings and one install-script warning; **not triaged**. |
+| Phase 0 spike scaffolding | `spikes/` holds a probe crate (`tz`, `reminder`, `health`, `evidence` modules), 58 scenario definitions (all **PENDING**), and notes; as of the paused handoff `cargo test` for it had never been run and its tests directory was empty ([spikes/HANDOFF.md](../spikes/HANDOFF.md)); another worker is extending it concurrently, so re-read `spikes/` before relying on this row. |
+| Mobile/desktop status | [MOBILE.md](../MOBILE.md): behavior verified **on the macOS host only**. `tauri ios init` succeeded; nothing was built or run on a simulator or device. Android init is blocked (no SDK/NDK). Windows not attempted. |
+| CI | None (no `.github/`). |
+| Releases, signing, store accounts | None known. |
+| `product-owner-prompt.md`, `start-prompt.md` | Rewritten to the current direction (Phases 0–4, WS-1…WS-9 workstreams, no authentication/subscription/Linux-first/mockup gate). |
 
-## 2. Parallel work in sibling worktrees (read-only observation)
+## 2. Known review findings (being fixed; not yet verified fixed)
 
-`git worktree list` shows other sessions working from the same repository. Nothing below was modified, merged, or accepted by this branch.
+An independent architecture review of the slice found the following. A fix is in progress in the Phase 1 worktree and has **not** been integrated or re-tested here. Each is carried into [backlog.md](backlog.md#phase-1--the-today-core-loop) as acceptance items.
 
-| Branch | Observation | Implication |
-|---|---|---|
-| `riogrande100-medtracker-phase1-slice` (1 commit, 92 files) | Tauri 2 + React/Vite/Tailwind app with Rust `application/ledger.rs`, `application/medication.rs`, `storage/sql/001_initial.sql`, Today/History/Medications views, Vitest and Rust tests. CSP is `default-src 'self'; connect-src ipc: http://ipc.localhost …`; capability file grants `core:default` only (comment: "runtime network allowlist is empty"). Depends on locally bundled `@fontsource-variable/geist`. Its own `MOBILE.md` states Phase 1 was verified **on the macOS host only**: iOS `tauri ios init` succeeded but nothing was built or run on a simulator/device; Android init **blocked** (no SDK/NDK); Windows not attempted. Notifications are a stub. | A **candidate starting point** for B1-01…B1-08, not accepted evidence. Quick read found gaps against this backlog: no `schedule`/`schedule_version` tables (slots attach to a medication), `medication.rs` deletes `scheduled_occurrence` rows when slots change (conflicts with PR-07), time context is a fixed OS offset without IANA zone/DST engine (its notes say so), `undo` exists but with a different shape than D-10 (`voided` status). Audit under backlog governance rule 5. |
-| `riogrande100-user-friendly-medtracker-platforms` (also on `origin`, 1 commit) | Revises the three governing docs toward four primary targets and a Today/Taken/Skip/Undo flow, but **also** permits runtime network access (catalog retrieval, updates, optional sync later, Android Health Connect integration), relaxes but still keeps an approval gate on "production feature work", and re-uses requirement ID `PR-19` for health integrations. | Conflicts with the latest request (empty runtime network allowlist, no sync, no mockup gate on Phase 1) and with this branch's `PR-19`. **Do not merge as-is**; its Today/Undo framing is already incorporated here, and its optional health integration is carried as deferred feature DF-08 in [registers.md](registers.md). |
-| `riogrande100-spike-medtracker-platforms`, `copilot-prewarm-scaling-robot` | Same commit as `main`; no work yet. | None. |
+| # | Severity | Finding | Ticket |
+|---|---|---|---|
+| 1 | High | Backdated/corrected wall times use the offset from the current day, not the entered date, producing wrong instants and stored offsets across DST. Needs IANA rules for the entered date and DST tests. | B1-04, B1-05 |
+| 2 | Medium | Today is not refreshed at midnight, on resume/focus, or when an item becomes due; Rust does not reject stale slot-linked dates. | B1-06 |
+| 3 | Medium | No pre-migration snapshot, no `integrity_check`, no recoverable UI state for migration or newer-database failures. | B1-02 |
+| 4 | Medium | Undo is intentionally soft/reversible, but per-event privacy deletion (redact notes and revision payloads, record a tombstone) is missing. | B1-05 |
 
-## 3. Host toolchain (this macOS arm64 machine)
+Other gaps against the backlog observed in an earlier read and not yet audited: no `schedule`/`schedule_version` tables (slots attach to a medication); changing slots deletes `scheduled_occurrence` rows, which conflicts with PR-07; time context is a fixed OS offset without an IANA zone (see [MOBILE.md](../MOBILE.md)); the undo shape differs from D-10 (`voided` status). Per backlog governance rule 5, none of this code counts toward a ticket until audited.
+
+## 3. Phase 0 findings so far (documentation and host only)
+
+| Finding | Status |
+|---|---|
+| `chrono-tz` 0.10.4 bundles tzdb 2025b, stale against IANA 2026f (released 2026-10-27); `jiff` 1.x with bundled tzdb is recommended (D-04a). | Library finding from the host spike; **not a device claim**. Spec updated. |
+| Tauri notification plugin: `Schedule` is mobile-only; desktop notifications are immediate; Android falls back to inexact alarms when exact-alarm access is missing; iOS `Schedule.at` is an elapsed-time trigger. | Read from documentation and source; **no device run**. |
+| HealthKit and Android/Google health: medication-dose support exists only on recent OS versions or experimental APIs, or is unestablished; the Google Health API is a cloud OAuth API. | Documentation only; feasibility remains B0-09, optional and non-blocking (PR-28). |
+
+Spike recommendations are provisional and carry no device evidence: iOS/Android reminders DEFER, Windows/macOS plugin scheduling NO-GO, `device_local` DEFER, health import NO-GO for MVP.
+
+## 4. Host toolchain (macOS arm64 planning host, observed earlier)
 
 | Tool | Observed |
 |---|---|
-| macOS | 27.2.1, arm64 |
-| Xcode | 27.2 (build 27B52), command-line tools path set |
-| Rust | `rustc`/`cargo` 1.99.1; installed targets: `aarch64-apple-darwin`, `aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios` (no Android or Windows targets listed) |
-| Node / npm | v26.12.0 / 11.20.0 (npm registry reachable at check time) |
-| `cargo-tauri` CLI | not found (the `phase1-slice` branch uses `@tauri-apps/cli` via npm instead) |
-| Android | no `adb`, no `~/Library/Android/sdk`, no Java runtime found |
-| Windows host | none available to this session |
-| Doc tooling | `markdownlint`, `markdownlint-cli2`, `lychee`, `mmdc` not installed (can be run via `npx`; see Validation in the delivery report) |
+| macOS / Xcode | macOS 27.2.1 arm64; Xcode 27.2 |
+| Rust | 1.99.1 with `aarch64-apple-darwin`, `aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios` (no Android or Windows targets) |
+| Node / npm | v26.12.0 / 11.20.0 |
+| Android | no `adb`, no SDK, no Java runtime |
+| Windows host | none available |
+| Doc tooling | `markdownlint-cli2` not installed (run via `npx`); a local link/anchor script is used instead |
 
-Consequence: on this host, macOS and iOS-simulator builds are plausible; **Android and Windows are blocked** until a human supplies a toolchain/host. Physical iOS/Android devices were not observed. No evidence for any gate exists.
+Consequence: macOS and an iOS simulator are plausible on this host. **Android and Windows are blocked** until a human supplies a toolchain/host, and no physical device was observed.
 
-## 4. Contradictions found in the source documents (and resolution)
+## 5. Resolved contradictions (latest product direction wins)
 
-| # | Conflict | Sources | Resolution (latest user request wins) |
-|---|---|---|---|
-| 1 | iOS as the first release candidate vs four primary targets | spec §1/§2/§13 vs request | Four primary targets, none ranked first; per-platform evidence decides release order (PR-16, PR-24, D-05). |
-| 2 | Linux-first production target, Linux-only CI | PO prompt Phase 6 | Linux is non-primary and gates nothing; CI cost policy is target-neutral (D-08, D-26). |
-| 3 | Authentication, registration, login, subscription, "backup and sync" in the flow | PO prompt Phase 1 | Removed; excluded scope PR-22; local backup/restore only. |
-| 4 | No UI/engineering before mockup approval | PO prompt Phases 1, 4 | Design review is parallel and non-blocking for Phase 1; usability evidence is a Phase 3 gate (PR-27, D-07). |
-| 5 | Phases 1–9 (PO prompt) vs Phases 0–4 (spec/start prompt) | both | Phases 0–4 are the delivery phases; PO "phases" become workstreams WS-1…WS-9 mapped to them. |
-| 6 | Spec Phase 1 had no schedule and no Today; primary experience needs due occurrences | spec §11 vs request | Minimal schedule + occurrence engine moved into Phase 1 (B1-04); full versioning stays Phase 2 (D-11). |
-| 7 | Spec had delete-with-tombstone but no accidental-action undo | spec §3/§4 | Undo = void with audit (PR-21, D-10); delete remains the separate privacy action. |
-| 8 | Fully offline, no runtime network vs sibling branch allowing network integrations | spec PR-01/PR-17 vs sibling docs | Allowlist empty by default with a change process (PR-23); health integration deferred, non-blocking (DF-08). |
-| 9 | Spec "Android, then desktop" and desktop notifications "later"; PO prompt Windows/macOS "local verification only" | spec, PO prompt | All four have equal status; each gets its own matrix; desktop reminders not promised until a spike (B0-06). |
-| 10 | Start prompt: "Do not generate application code yet" | start prompt | Applied to the planning task; implementation follows [backlog.md](backlog.md). |
+| # | Conflict | Resolution |
+|---|---|---|
+| 1 | iOS-first vs four primary targets | Four primary targets, none first; release order from per-platform evidence (PR-16, PR-24, D-05). |
+| 2 | Linux-first production target and CI | Linux non-primary, gates nothing (D-08, D-26). |
+| 3 | Authentication, registration, subscription, "backup and sync" in the old PO prompt | Removed (PR-22); local backup/restore only. |
+| 4 | No engineering before mockup approval | Design review is parallel; usability is a Phase 3 gate (PR-27, D-07). |
+| 5 | Phases 1–9 (PO prompt) vs Phases 0–4 | Phases 0–4 only; PO phases become WS-1…WS-9 ([mapping](product-spec.md#workstream-mapping)). |
+| 6 | Spec Phase 1 lacked schedule and Today | Minimal schedule + occurrences in Phase 1 (B1-04); versioning in Phase 2 (D-11). |
+| 7 | Delete-only vs accidental-action undo | Undo = `voided` with audit; delete is the separate privacy action (PR-21, PR-06, D-10). |
+| 8 | Fully offline vs network-enabled sibling revision | Merged: allowlist model; web access only for reviewed features; allowlist currently empty (PR-23, D-27); connectivity failure never blocks local logging (PR-01). |
+| 9 | Health integration as `PR-19` in the sibling revision, colliding with the Today core loop `PR-19` | Today keeps PR-19; health integration is **PR-28**, optional and feasibility-gated (B0-09, DF-08, D-28). |
+| 10 | `chrono-tz` as the time engine | `jiff` 1.x with bundled tzdb (D-04a). |
+| 11 | "Do not generate application code yet" (start prompt) | Applied to the original planning task only; implementation follows [backlog.md](backlog.md). |
 
-## 5. Gate status at baseline
+## 6. Gate status at baseline
 
-All of the following are **NOT PASSED — evidence-dependent** (no artifact exists): GT-LIC (catalog licensing), GT-UX (stakeholder usability), GT-SIGN (signing), GT-STORE (store), GT-LEGAL, GT-A11Y, GT-REC, GT-NET, GT-DEV-IOS, GT-DEV-AND, GT-DEV-WIN, GT-DEV-MAC, and phase gates G0–G4. Definitions: [registers.md](registers.md). Per-platform cells: [release-evidence.md](release-evidence.md).
+All of the following are **NOT PASSED — evidence-dependent** (no artifact exists): GT-LIC, GT-UX, GT-SIGN, GT-STORE, GT-LEGAL, GT-A11Y, GT-REC, GT-NET, GT-HEALTH, GT-DEV-IOS, GT-DEV-AND, GT-DEV-WIN, GT-DEV-MAC, and phase gates G0–G4. No device, store, or signing evidence exists. Host-side unit tests do not satisfy any of these. Definitions: [registers.md](registers.md). Per-platform cells: [release-evidence.md](release-evidence.md).
 
-## 6. Known limitations of this baseline
+## 7. Known limitations of this baseline
 
-- External facts (Tauri plugin capabilities, OS notification behavior, NLM licensing) are carried from the spec's 2026-11-14 evidence and were **not re-verified** here; Phase 0 tickets re-verify them.
-- Sibling-branch observations come from a short read and diff, not from running their tests.
+- External facts (Tauri plugin capabilities, OS notification behavior, NLM licensing, crate versions) are carried from the 2026-11-14 spec evidence and the 2026-11-18 spike notes and were **not re-verified** here.
+- Test counts come from the handoff; they were not re-run for this document.
+- Paused sibling sessions (Phase 2 MVP, spikes) may hold uncommitted work not reflected here.
 - No stakeholder, device, store, or legal input has been collected.

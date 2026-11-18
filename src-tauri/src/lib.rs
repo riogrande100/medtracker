@@ -17,15 +17,19 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            let conn = storage::open(&dir.join("user-data.sqlite")).map_err(|e| format!("{e:?}"))?;
-            app.manage(commands::Db(std::sync::Mutex::new(conn)));
+            // A failed open (newer/corrupt/failed upgrade) must not abort the app or touch the file:
+            // the UI shows a recoverable screen from `startup_status`.
+            app.manage(commands::Db::open(&dir.join("user-data.sqlite")));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::startup_status,
             commands::list_today,
             commands::record_dose,
             commands::correct_dose,
             commands::undo_dose,
+            commands::restore_dose,
+            commands::delete_dose_entry,
             commands::list_history,
             commands::create_medication,
             commands::list_medications,

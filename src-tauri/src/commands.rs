@@ -6,11 +6,36 @@ use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::State;
 
-pub struct Db(pub Mutex<Connection>);
+/// App database state. If opening failed (newer version, corrupt, failed upgrade) there is no
+/// connection and `startup_error` explains why; the data file has been left untouched and every
+/// command returns that same typed error so the UI can show a recoverable screen.
+pub struct Db {
+    pub conn: Mutex<Option<Connection>>,
+    pub startup_error: Option<AppError>,
+}
+
+impl Db {
+    pub fn open(path: &std::path::Path) -> Db {
+        match crate::storage::open(path) {
+            Ok(c) => Db { conn: Mutex::new(Some(c)), startup_error: None },
+            Err(e) => Db { conn: Mutex::new(None), startup_error: Some(e) },
+        }
+    }
+}
 
 fn with<T>(db: &State<Db>, f: impl FnOnce(&mut Connection) -> AppResult<T>) -> AppResult<T> {
-    let mut c = db.0.lock().map_err(|_| AppError::Storage("database unavailable".into()))?;
-    f(&mut c)
+    if let Some(e) = &db.startup_error {
+        return Err(e.clone());
+    }
+    let mut guard = db.conn.lock().map_err(|_| AppError::Storage("database unavailable".into()))?;
+    let c = guard.as_mut().ok_or_else(|| AppError::Storage("database unavailable".into()))?;
+    f(c)
+}
+
+/// `None` when the database opened normally; otherwise the reason it did not.
+#[tauri::command]
+pub fn startup_status(db: State<Db>) -> Option<AppError> {
+    db.startup_error.clone()
 }
 
 #[tauri::command]
@@ -31,6 +56,17 @@ pub fn correct_dose(db: State<Db>, input: CorrectDose) -> AppResult<()> {
 #[tauri::command]
 pub fn undo_dose(db: State<Db>, event_id: String) -> AppResult<()> {
     with(&db, |c| ledger::undo(c, TimeCtx::system(), &event_id))
+}
+
+#[tauri::command]
+pub fn restore_dose(db: State<Db>, event_id: String) -> AppResult<()> {
+    with(&db, |c| ledger::restore(c, TimeCtx::system(), &event_id))
+}
+
+/// Permanent privacy deletion of one entry's content. Distinct from `undo_dose`.
+#[tauri::command]
+pub fn delete_dose_entry(db: State<Db>, event_id: String) -> AppResult<()> {
+    with(&db, |c| ledger::delete_entry(c, TimeCtx::system(), &event_id))
 }
 
 #[tauri::command]
