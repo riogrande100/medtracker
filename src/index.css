@@ -1,0 +1,16 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 font-sans antialiased;
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-blue-700;
+}
