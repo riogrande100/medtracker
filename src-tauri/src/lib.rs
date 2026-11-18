@@ -1,6 +1,7 @@
 mod application;
 mod clock;
 mod commands;
+mod domain;
 mod dto;
 mod error;
 mod notifications;
@@ -8,6 +9,8 @@ mod storage;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_schedule;
 
 use tauri::Manager;
 
@@ -36,6 +39,14 @@ pub fn run() {
             commands::list_medications,
             commands::archive_medication,
             commands::delete_medication,
+            commands::create_schedule,
+            commands::edit_schedule,
+            commands::pause_schedule,
+            commands::resume_schedule,
+            commands::end_schedule,
+            commands::preview_schedule,
+            commands::next_due,
+            commands::generate_occurrences,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MedTracker");

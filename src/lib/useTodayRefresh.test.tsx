@@ -7,8 +7,9 @@ import { msUntilLocalMidnight } from "./useTodayRefresh";
 
 function setup(items: Partial<TodayItem>[] = [{}]) {
   const base: TodayItem = {
-    slot_id: "s1", medication_id: "m1", name: "Metformin", strength: "500 mg", form: "tablet",
-    local_date: "2026-03-10", local_time: "08:00", status: "upcoming", event_ids: [],
+    occurrence_id: "o1", schedule_id: "sch1", medication_id: "m1", name: "Metformin", strength: "500 mg", form: "tablet",
+    mode: "home_zone", scheduled_at_utc_us: new Date(2026, 2, 10, 8, 0).getTime() * 1000, local_date: "2026-03-10", local_time: "08:00",
+    zone_id: null, zone_abbreviation: null, offset_seconds: 0, adjusted: false, device_time: null, status: "upcoming", event_ids: [],
   };
   const listToday = vi.fn(async () => items.map((i) => ({ ...base, ...i })));
   const api: Api = { ...fakeApi(), listToday };
@@ -81,7 +82,7 @@ describe("Today stays fresh", () => {
     vi.setSystemTime(new Date(2026, 2, 10, 23, 58, 0));
     const base = fakeApi();
     const listToday = vi.fn(async () => [
-      { slot_id: "s1", medication_id: "m1", name: "Metformin", strength: null, form: null, local_date: "2026-03-10", local_time: "08:00", status: "due" as const, event_ids: [] },
+      { occurrence_id: "o1", schedule_id: "sch1", medication_id: "m1", name: "Metformin", strength: null, form: null, mode: "home_zone" as const, scheduled_at_utc_us: 0, local_date: "2026-03-10", local_time: "08:00", zone_id: null, zone_abbreviation: null, offset_seconds: 0, adjusted: false, device_time: null, status: "due" as const, event_ids: [] },
     ]);
     const recordDose = vi.fn(async () => {
       throw { kind: "stale_date", message: "The day has changed, so Today was out of date." };

@@ -2,7 +2,11 @@ use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
 
 /// Numbered, embedded migrations. Index + 1 is the `user_version` after applying.
-pub const MIGRATIONS: &[&str] = &[include_str!("sql/001_initial.sql"), include_str!("sql/002_undo_delete_zone.sql")];
+pub const MIGRATIONS: &[&str] = &[
+    include_str!("sql/001_initial.sql"),
+    include_str!("sql/002_undo_delete_zone.sql"),
+    include_str!("sql/003_schedules.sql"),
+];
 
 #[cfg(test)]
 pub fn latest_version() -> i64 {

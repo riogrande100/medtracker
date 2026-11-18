@@ -1926,6 +1926,7 @@ dependencies = [
  "chrono",
  "iana-time-zone",
  "jiff 1.0.1",
+ "jiff-tzdb 1.0.0",
  "rusqlite",
  "serde",
  "serde_json",

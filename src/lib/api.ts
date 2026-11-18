@@ -1,16 +1,32 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export type DoseKind = "take" | "skip";
-export type TodayStatus = "upcoming" | "due" | "taken" | "skipped" | "conflict";
+export type TodayStatus = "upcoming" | "due" | "taken" | "skipped" | "conflict" | "earlier_not_logged";
+export type ScheduleMode = "home_zone" | "elapsed_interval";
+export type ScheduleState = "active" | "paused" | "ended";
 
 export interface TodayItem {
-  slot_id: string;
+  /** The explicit link target for Taken / Skip. */
+  occurrence_id: string;
+  schedule_id: string;
   medication_id: string;
   name: string;
   strength: string | null;
   form: string | null;
+  mode: ScheduleMode;
+  /** The scheduled instant; the UI uses it for timers, never for display. */
+  scheduled_at_utc_us: number;
   local_date: string;
+  /** "HH:MM" of the scheduled instant in the card's own zone. */
   local_time: string;
+  zone_id: string | null;
+  zone_abbreviation: string | null;
+  offset_seconds: number;
+  /** The intended wall time did not exist (clock change) and was moved. */
+  adjusted: boolean;
+  /** The same instant on this device's clock, only when it reads differently. */
+  device_time: string | null;
+  /** Derived by the app from schedule + dose events + clock; never stored. */
   status: TodayStatus;
   event_ids: string[];
 }
@@ -45,13 +61,63 @@ export interface HistoryEntry {
   revisions: Revision[];
 }
 
+export interface SlotInput {
+  /** "HH:MM" */
+  time: string;
+  /** ISO weekdays, 1 = Monday ... 7 = Sunday. Empty = every day. */
+  weekdays: number[];
+}
+
+export interface ScheduleInput {
+  mode: ScheduleMode;
+  /** home_zone: IANA zone id (required). elapsed_interval: null. */
+  zone_id: string | null;
+  slots: SlotInput[];
+  /** elapsed_interval: seconds between doses. */
+  interval_seconds: number | null;
+  /** elapsed_interval: first dose "YYYY-MM-DDTHH:MM" on the device clock; null = now (create) or keep (edit). */
+  anchor_local: string | null;
+}
+
+export interface PreviewOccurrence {
+  scheduled_at_utc_us: number;
+  local_date: string;
+  local_time: string;
+  offset_seconds: number;
+  zone_id: string | null;
+  zone_abbreviation: string | null;
+  adjusted: boolean;
+}
+
+export interface ScheduleSummary {
+  id: string;
+  state: ScheduleState;
+  version_number: number;
+  mode: ScheduleMode;
+  zone_id: string | null;
+  slots: SlotInput[];
+  interval_seconds: number | null;
+  anchor_utc_us: number | null;
+  effective_from_utc_us: number;
+  /** Next seven occurrences while active; empty when paused or ended. */
+  next: PreviewOccurrence[];
+}
+
+export interface NextDue {
+  medication_id: string;
+  name: string;
+  strength: string | null;
+  occurrence: PreviewOccurrence;
+}
+
 export interface MedicationSummary {
   id: string;
   name: string;
   strength: string | null;
   form: string | null;
   archived: boolean;
-  times: string[];
+  /** Most recent schedule; null = as needed. */
+  schedule: ScheduleSummary | null;
 }
 
 export interface NewMedication {
@@ -64,8 +130,8 @@ export interface NewMedication {
 export interface RecordDose {
   medication_id: string;
   kind: DoseKind;
-  slot_id: string | null;
-  local_date: string | null;
+  /** The occurrence this action is for (the explicit link). null = an unscheduled dose. */
+  occurrence_id: string | null;
   occurred_local: string | null;
   note: string | null;
   /** Only for a wall time that happens twice (clocks going back): true picks the later one. Default earlier. */
@@ -140,6 +206,18 @@ export const api = {
   listMedications: () => invoke<MedicationSummary[]>("list_medications"),
   archiveMedication: (id: string, archived: boolean) => invoke<void>("archive_medication", { id, archived }),
   deleteMedication: (id: string) => invoke<void>("delete_medication", { id }),
+  createSchedule: (medicationId: string, definition: ScheduleInput) =>
+    invoke<string>("create_schedule", { input: { medication_id: medicationId, definition } }),
+  /** Saves a new schedule version effective now; past doses and History are not rewritten. */
+  editSchedule: (scheduleId: string, definition: ScheduleInput) =>
+    invoke<void>("edit_schedule", { input: { schedule_id: scheduleId, definition } }),
+  pauseSchedule: (scheduleId: string) => invoke<void>("pause_schedule", { scheduleId }),
+  resumeSchedule: (scheduleId: string) => invoke<void>("resume_schedule", { scheduleId }),
+  endSchedule: (scheduleId: string) => invoke<void>("end_schedule", { scheduleId }),
+  /** The next seven occurrences of a schedule that has not been saved. Writes nothing. */
+  previewSchedule: (input: ScheduleInput) => invoke<PreviewOccurrence[]>("preview_schedule", { input }),
+  /** The next occurrence that hasn't been recorded, which may be on a later day. */
+  nextDue: () => invoke<NextDue | null>("next_due"),
 };
 
 export type Api = typeof api;

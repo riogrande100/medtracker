@@ -1,4 +1,5 @@
-use crate::clock::{fmt_local, local_from_utc, parse_hhmm, parse_local, TimeCtx, Zone};
+use crate::application::schedule;
+use crate::clock::{fmt_local, local_from_utc, parse_local, TimeCtx, Zone};
 use crate::dto::*;
 use crate::error::{invalid, AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -12,53 +13,9 @@ fn clean_note(n: Option<String>) -> AppResult<Option<String>> {
     Ok(n)
 }
 
+/// Today's occurrences with derived status. See `schedule::today`.
 pub fn today(conn: &Connection, ctx: TimeCtx) -> AppResult<Vec<TodayItem>> {
-    let date = ctx.today();
-    let now_min = ctx.minutes_now();
-    let mut stmt = conn.prepare(
-        "SELECT s.id, m.id, v.name, v.strength, v.form, s.local_time
-         FROM schedule_slot s
-         JOIN user_medication m ON m.id = s.medication_id AND m.status = 'active'
-         JOIN medication_version v ON v.id = m.current_version_id
-         ORDER BY s.local_time, v.name",
-    )?;
-    let slots = stmt
-        .query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get::<_, String>(5)?))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut out = Vec::new();
-    for (slot_id, medication_id, name, strength, form, local_time) in slots {
-        let mut q = conn.prepare(
-            "SELECT e.id, e.kind FROM dose_event e
-             JOIN dose_event_occurrence l ON l.dose_event_id = e.id
-             JOIN scheduled_occurrence o ON o.id = l.occurrence_id
-             WHERE o.slot_id = ?1 AND o.local_date = ?2 AND e.undone = 0 ORDER BY e.occurred_at_utc",
-        )?;
-        let events: Vec<(String, String)> =
-            q.query_map(params![slot_id, date], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
-        let takes = events.iter().any(|e| e.1 == "take");
-        let skips = events.iter().any(|e| e.1 == "skip");
-        let status = match (takes, skips) {
-            (true, true) => TodayStatus::Conflict,
-            (true, false) => TodayStatus::Taken,
-            (false, true) => TodayStatus::Skipped,
-            _ if parse_hhmm(&local_time)? <= now_min => TodayStatus::Due,
-            _ => TodayStatus::Upcoming,
-        };
-        out.push(TodayItem {
-            slot_id,
-            medication_id,
-            name,
-            strength,
-            form,
-            local_date: date.clone(),
-            local_time,
-            status,
-            event_ids: events.into_iter().map(|e| e.0).collect(),
-        });
-    }
-    Ok(out)
+    crate::application::schedule::today(conn, ctx)
 }
 
 pub fn record(conn: &mut Connection, ctx: TimeCtx, input: RecordDose) -> AppResult<String> {
@@ -79,14 +36,6 @@ pub fn record(conn: &mut Connection, ctx: TimeCtx, input: RecordDose) -> AppResu
     if occurred > ctx.now_utc_us + 60_000_000 {
         return invalid("A dose can't be recorded in the future.");
     }
-    // A slot-linked request is only valid for the current day. Today can go stale across
-    // midnight, device resume or a time-zone change; refuse rather than log against a past day.
-    if input.slot_id.is_some() {
-        let date = input.local_date.as_deref().ok_or_else(|| AppError::Validation("Missing slot date.".into()))?;
-        if date != ctx.today() {
-            return Err(AppError::StaleDate("The day has changed, so Today was out of date. It has been refreshed; please check it and try again.".into()));
-        }
-    }
     let tx = conn.transaction()?;
     let version: Option<String> = tx
         .query_row(
@@ -97,28 +46,12 @@ pub fn record(conn: &mut Connection, ctx: TimeCtx, input: RecordDose) -> AppResu
         .optional()?;
     let version = version.ok_or_else(|| AppError::NotFound("Medication not found or archived.".into()))?;
 
+    // Taken/Skip on a card is the explicit link to that occurrence. It must still be current and
+    // belong to today in its schedule's zone; Today can go stale across midnight, device resume,
+    // a time-zone change or a schedule edit, and logging against a stale card is refused.
     let mut occurrence_id = None;
-    if let Some(slot_id) = &input.slot_id {
-        let date = input.local_date.as_deref().unwrap_or_default();
-        let slot_time: String = tx
-            .query_row(
-                "SELECT local_time FROM schedule_slot WHERE id=?1 AND medication_id=?2",
-                params![slot_id, input.medication_id],
-                |r| r.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| AppError::NotFound("Scheduled time not found.".into()))?;
-        let due = ctx.zone.resolve(parse_local(&format!("{date}T{slot_time}"))?)?;
-        tx.execute(
-            "INSERT OR IGNORE INTO scheduled_occurrence (id, slot_id, local_date, local_time, offset_seconds, due_at_utc, zone_id)
-             VALUES (?1,?2,?3,?4,?5,?6,?7)",
-            params![Uuid::new_v4().to_string(), slot_id, date, slot_time, due.offset_seconds, due.utc_us, ctx.zone.id()],
-        )?;
-        let occ: String = tx.query_row(
-            "SELECT id FROM scheduled_occurrence WHERE slot_id=?1 AND local_date=?2",
-            params![slot_id, date],
-            |r| r.get(0),
-        )?;
+    if let Some(occ) = &input.occurrence_id {
+        schedule::check_linkable(&tx, &ctx, occ, &input.medication_id)?;
         let dup: i64 = tx.query_row(
             "SELECT count(*) FROM dose_event e JOIN dose_event_occurrence l ON l.dose_event_id=e.id
              WHERE l.occurrence_id=?1 AND e.undone=0 AND e.kind=?2",
@@ -128,7 +61,7 @@ pub fn record(conn: &mut Connection, ctx: TimeCtx, input: RecordDose) -> AppResu
         if dup > 0 {
             return invalid("Already recorded for this time. Undo it first to change it.");
         }
-        occurrence_id = Some(occ);
+        occurrence_id = Some(occ.clone());
     }
 
     let id = Uuid::new_v4().to_string();
@@ -261,6 +194,9 @@ pub fn restore(conn: &mut Connection, ctx: TimeCtx, event_id: &str) -> AppResult
     }
     if !undone {
         return invalid("This entry isn't undone.");
+    }
+    if schedule::is_superseded(&tx, event_id)? {
+        return invalid("The schedule has changed since this was recorded, so it can't be restored to Today. It stays in History.");
     }
     let clash: i64 = tx.query_row(
         "SELECT count(*) FROM dose_event_occurrence mine

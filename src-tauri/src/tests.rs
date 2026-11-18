@@ -1,4 +1,4 @@
-use crate::application::{ledger, medication};
+use crate::application::{ledger, medication, schedule};
 use crate::clock::{parse_local, TimeCtx, Zone};
 use crate::error::AppError;
 use crate::dto::*;
@@ -32,6 +32,11 @@ fn setup() -> (Connection, String) {
     (c, id)
 }
 
+/// Today's cards for the current local day (the earlier-day, not-logged cards are tested apart).
+fn tday(c: &Connection, ctx: TimeCtx) -> Vec<TodayItem> {
+    ledger::today(c, ctx).unwrap().into_iter().filter(|i| i.status != TodayStatus::EarlierNotLogged).collect()
+}
+
 fn record(c: &mut Connection, now: &str, med: &str, kind: DoseKind, slot: &TodayItem) -> Result<String, crate::error::AppError> {
     ledger::record(
         c,
@@ -39,8 +44,7 @@ fn record(c: &mut Connection, now: &str, med: &str, kind: DoseKind, slot: &Today
         RecordDose {
             medication_id: med.into(),
             kind,
-            slot_id: Some(slot.slot_id.clone()),
-            local_date: Some(slot.local_date.clone()),
+            occurrence_id: Some(slot.occurrence_id.clone()),
             occurred_local: None,
             note: None,
             second_occurrence: None,
@@ -52,13 +56,13 @@ fn record(c: &mut Connection, now: &str, med: &str, kind: DoseKind, slot: &Today
 fn due_then_taken_then_undo_restores_due() {
     let (mut c, med) = setup();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     assert_eq!(item.status, TodayStatus::Due);
     let id = record(&mut c, now, &med, DoseKind::Take, &item).unwrap();
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Taken);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Taken);
 
     ledger::undo(&mut c, ctx(now), &id).unwrap();
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Due);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Due);
     let h = ledger::history(&c, 10).unwrap();
     assert!(h[0].undone);
     assert_eq!(h[0].revisions[0].reason, "undo");
@@ -69,15 +73,14 @@ fn due_then_taken_then_undo_restores_due() {
 fn undo_is_reversible_and_keeps_everything() {
     let (mut c, med) = setup();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     let id = ledger::record(
         &mut c,
         ctx(now),
         RecordDose {
             medication_id: med.clone(),
             kind: DoseKind::Take,
-            slot_id: Some(item.slot_id.clone()),
-            local_date: Some(item.local_date.clone()),
+            occurrence_id: Some(item.occurrence_id.clone()),
             occurred_local: None,
             note: Some("took with food".into()),
             second_occurrence: None,
@@ -85,11 +88,11 @@ fn undo_is_reversible_and_keeps_everything() {
     )
     .unwrap();
     ledger::undo(&mut c, ctx(now), &id).unwrap();
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Due);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Due);
     // Undone entries can't be edited, and restoring puts the same entry (note intact) back.
     assert!(ledger::correct(&mut c, ctx(now), CorrectDose { event_id: id.clone(), kind: None, occurred_local: None, note: Some("x".into()), second_occurrence: None }).is_err());
     ledger::restore(&mut c, ctx(now), &id).unwrap();
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Taken);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Taken);
     let h = &ledger::history(&c, 10).unwrap()[0];
     assert!(!h.undone && !h.deleted);
     assert_eq!(h.note.as_deref(), Some("took with food"));
@@ -118,7 +121,7 @@ fn privacy_deletion_is_permanent_and_leaves_no_note_text() {
     )
     .unwrap();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     let secret1 = "SECRET-NOTE-ALPHA-7731";
     let secret2 = "SECRET-NOTE-BRAVO-9042";
     let id = ledger::record(
@@ -127,8 +130,7 @@ fn privacy_deletion_is_permanent_and_leaves_no_note_text() {
         RecordDose {
             medication_id: med.clone(),
             kind: DoseKind::Take,
-            slot_id: Some(item.slot_id.clone()),
-            local_date: Some(item.local_date.clone()),
+            occurrence_id: Some(item.occurrence_id.clone()),
             occurred_local: None,
             note: Some(secret1.into()),
             second_occurrence: None,
@@ -149,7 +151,7 @@ fn privacy_deletion_is_permanent_and_leaves_no_note_text() {
     assert!(h.note.is_none());
     assert!(h.revisions.iter().all(|r| r.before.is_none() && r.after.is_none()));
     assert_eq!(h.revisions.last().unwrap().reason, "delete");
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Due, "tombstone is not a dose");
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Due, "tombstone is not a dose");
     // Not reversible, not editable, not deletable twice.
     assert!(ledger::restore(&mut c, ctx(now), &id).is_err());
     assert!(ledger::undo(&mut c, ctx(now), &id).is_err());
@@ -171,7 +173,7 @@ fn delete_entry_unknown_id_is_not_found() {
 }
 
 fn plain(med: &str, when: &str) -> RecordDose {
-    RecordDose { medication_id: med.into(), kind: DoseKind::Take, slot_id: None, local_date: None, occurred_local: Some(when.into()), note: None, second_occurrence: None }
+    RecordDose { medication_id: med.into(), kind: DoseKind::Take, occurrence_id: None, occurred_local: Some(when.into()), note: None, second_occurrence: None }
 }
 
 #[test]
@@ -236,20 +238,21 @@ fn correction_across_dst_uses_the_new_dates_offset() {
 }
 
 #[test]
-fn stale_slot_dates_are_rejected_with_a_typed_error() {
+fn stale_occurrences_are_rejected_with_a_typed_error() {
     let (mut c, med) = setup();
-    let item = ledger::today(&c, ctx("2026-03-10T23:50")).unwrap().remove(0);
+    let item = tday(&c, ctx("2026-03-10T23:50")).remove(0);
     assert_eq!(item.local_date, "2026-03-10");
     // Still valid just before midnight.
     record(&mut c, "2026-03-10T23:59", &med, DoseKind::Take, &item).unwrap();
     // After midnight the same request (Today was left open) is stale.
     let err = record(&mut c, "2026-03-11T00:01", &med, DoseKind::Skip, &item).unwrap_err();
     assert!(matches!(err, AppError::StaleDate(_)), "{err:?}");
-    // Also stale if a later day, and a future date is not "today" either.
+    // Also stale on a later day, and tomorrow's occurrence is not today's either.
     assert!(matches!(record(&mut c, "2026-03-12T09:00", &med, DoseKind::Skip, &item), Err(AppError::StaleDate(_))));
-    let mut future = item.clone();
-    future.local_date = "2026-03-11".into();
-    assert!(matches!(record(&mut c, "2026-03-10T23:00", &med, DoseKind::Skip, &future), Err(AppError::StaleDate(_))));
+    schedule::generate_range(&c, &ctx("2026-03-10T23:00"), "2026-03-11", "2026-03-11").unwrap();
+    let tomorrow = tday(&c, ctx("2026-03-11T09:00")).remove(0);
+    assert_eq!(tomorrow.local_date, "2026-03-11");
+    assert!(matches!(record(&mut c, "2026-03-10T23:00", &med, DoseKind::Skip, &tomorrow), Err(AppError::StaleDate(_))));
     // Nothing was written for the stale attempts.
     assert_eq!(ledger::history(&c, 10).unwrap().len(), 1);
     // Wire format the UI relies on.
@@ -318,7 +321,7 @@ fn v1_database_is_snapshotted_then_migrated_to_latest_without_data_loss() {
     assert_eq!(undone.revisions[0].reason, "undo");
     // A verified pre-migration snapshot sits next to the database and is byte-for-byte the old data.
     let snaps: Vec<String> = siblings(&path).into_iter().filter(|n| n.ends_with(".bak")).collect();
-    assert_eq!(snaps, ["user-data.sqlite.pre-migration-v1-to-v2.bak"]);
+    assert_eq!(snaps, [format!("user-data.sqlite.pre-migration-v1-to-v{}.bak", migrations::latest_version())]);
     let snap = Connection::open(path.parent().unwrap().join(&snaps[0])).unwrap();
     assert_eq!(migrations::user_version(&snap).unwrap(), 1);
     let n: i64 = snap.query_row("SELECT count(*) FROM dose_event", [], |r| r.get(0)).unwrap();
@@ -348,7 +351,7 @@ fn fresh_database_needs_no_snapshot_and_reopen_keeps_data() {
         medication::create(&mut c, ctx("2026-03-01T08:00"), NewMedication { name: "A".into(), strength: None, form: None, times: vec![] }).unwrap();
     }
     let c = storage::open(&path).unwrap();
-    assert_eq!(medication::list(&c).unwrap().len(), 1);
+    assert_eq!(medication::list(&c, &ctx("2026-03-10T09:00")).unwrap().len(), 1);
     assert!(siblings(&path).iter().all(|n| !n.ends_with(".bak")));
     cleanup(&path);
 }
@@ -471,11 +474,11 @@ fn pre_upgrade_snapshot_never_outlives_a_privacy_deletion() {
     db.purge_older_snapshots();
     assert_eq!(
         siblings(&path).into_iter().filter(|n| n.contains(".bak")).collect::<Vec<_>>(),
-        ["user-data.sqlite.pre-migration-v1-to-v2.bak"],
+        [format!("user-data.sqlite.pre-migration-v1-to-v{}.bak", migrations::latest_version())],
         "only this launch's own snapshot remains"
     );
     assert!(db.upgrade_copy_exists());
-    assert_eq!(files_containing(&path, secret), ["user-data.sqlite.pre-migration-v1-to-v2.bak"], "the live file no longer holds the note");
+    assert_eq!(files_containing(&path, secret), [format!("user-data.sqlite.pre-migration-v1-to-v{}.bak", migrations::latest_version())], "the live file no longer holds the note");
     drop(db);
 
     // ...and the next launch removes this launch's snapshot too: no file of any kind keeps the note.
@@ -499,7 +502,7 @@ fn deleting_a_medication_also_purges_older_snapshots() {
         let mut g = db.conn.lock().unwrap();
         medication::create(g.as_mut().unwrap(), ctx("2026-03-01T08:00"), NewMedication { name: "A".into(), strength: None, form: None, times: vec![] }).unwrap()
     };
-    std::fs::write(path.parent().unwrap().join("user-data.sqlite.pre-migration-v1-to-v2-2.bak"), "stale copy").unwrap();
+    std::fs::write(path.parent().unwrap().join("user-data.sqlite.pre-migration-v1-to-v3-2.bak"), "stale copy").unwrap();
     assert!(!db.upgrade_copy_exists());
     {
         let mut g = db.conn.lock().unwrap();
@@ -514,12 +517,12 @@ fn deleting_a_medication_also_purges_older_snapshots() {
 fn repeated_failed_upgrades_reuse_one_snapshot() {
     let path = temp_db("failmig-repeat");
     make_v1_fixture(&path);
-    let bad: Vec<&str> = vec![migrations::MIGRATIONS[0], "SELECT * FROM table_that_does_not_exist;"];
+    let bad: Vec<&str> = vec![migrations::MIGRATIONS[0], migrations::MIGRATIONS[1], "SELECT * FROM table_that_does_not_exist;"];
     for _ in 0..3 {
         assert!(matches!(storage::open_with(&path, &bad), Err(AppError::MigrationFailed(_))));
     }
     let names = siblings(&path);
-    assert_eq!(names.iter().filter(|n| n.contains(".bak")).collect::<Vec<_>>(), ["user-data.sqlite.pre-migration-v1-to-v2.bak"], "{names:?}");
+    assert_eq!(names.iter().filter(|n| n.contains(".bak")).collect::<Vec<_>>(), [&format!("user-data.sqlite.pre-migration-v1-to-v{}.bak", migrations::latest_version())], "{names:?}");
     assert!(names.iter().all(|n| !n.ends_with(".tmp")));
     // The eventual successful upgrade replaces it; the launch after that removes it.
     drop(storage::open(&path).unwrap());
@@ -555,7 +558,7 @@ fn newer_database_is_reported_as_newer_even_if_otherwise_unreadable_for_integrit
     let path = temp_db("snapfail");
     make_v1_fixture(&path);
     // A directory squatting on the temporary name makes the snapshot impossible.
-    std::fs::create_dir(path.parent().unwrap().join("user-data.sqlite.pre-migration-v1-to-v2.bak.tmp")).unwrap();
+    std::fs::create_dir(path.parent().unwrap().join(format!("user-data.sqlite.pre-migration-v1-to-v{}.bak.tmp", migrations::latest_version()))).unwrap();
     let err = storage::open(&path).unwrap_err();
     match err {
         AppError::MigrationFailed(m) => assert!(m.contains("safety copy") && !m.contains("Corrupt") && !m.contains("{") && !m.contains("\\\""), "{m}"),
@@ -604,7 +607,7 @@ fn hot_rollback_journal_from_a_crash_is_recovered_not_reported_as_corruption() {
     let c = storage::open(&a).expect("hot journal is recovered on a read-write open");
     let rows: i64 = c.query_row("SELECT count(*) FROM filler", [], |r| r.get(0)).unwrap();
     assert_eq!(rows, 1, "the interrupted transaction was rolled back to the last committed state");
-    assert_eq!(medication::list(&c).unwrap().len(), 1);
+    assert_eq!(medication::list(&c, &ctx("2026-03-10T09:00")).unwrap().len(), 1);
     assert!(!std::path::PathBuf::from(format!("{}-journal", a.display())).exists(), "journal consumed");
     cleanup(&src);
     cleanup(&a);
@@ -700,26 +703,26 @@ fn history_pages_reach_every_entry_in_order() {
 #[test]
 fn upcoming_before_scheduled_time() {
     let (c, _) = setup();
-    assert_eq!(ledger::today(&c, ctx("2026-03-10T07:00")).unwrap()[0].status, TodayStatus::Upcoming);
+    assert_eq!(tday(&c, ctx("2026-03-10T07:00"))[0].status, TodayStatus::Upcoming);
 }
 
 #[test]
 fn skip_is_distinct_from_taken_and_conflict_is_flagged() {
     let (mut c, med) = setup();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     record(&mut c, now, &med, DoseKind::Skip, &item).unwrap();
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Skipped);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Skipped);
     assert!(record(&mut c, now, &med, DoseKind::Skip, &item).is_err());
     record(&mut c, now, &med, DoseKind::Take, &item).unwrap();
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Conflict);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Conflict);
 }
 
 #[test]
 fn correction_keeps_original_context_and_appends_revision() {
     let (mut c, med) = setup();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     let id = record(&mut c, now, &med, DoseKind::Take, &item).unwrap();
     ledger::correct(
         &mut c,
@@ -737,7 +740,7 @@ fn correction_keeps_original_context_and_appends_revision() {
     assert!(h.revisions[0].before.as_ref().unwrap().contains("\"take\""));
     assert!(h.revisions[0].after.as_ref().unwrap().contains("\"skip\""));
     assert!(h.entered_at_utc_us < ctx("2026-03-10T10:00").now_utc_us);
-    assert_eq!(ledger::today(&c, ctx(now)).unwrap()[0].status, TodayStatus::Skipped);
+    assert_eq!(tday(&c, ctx(now))[0].status, TodayStatus::Skipped);
     // No-op corrections are rejected rather than creating empty revisions.
     assert!(ledger::correct(&mut c, ctx(now), CorrectDose { event_id: id, kind: None, occurred_local: None, note: None, second_occurrence: None }).is_err());
 }
@@ -749,8 +752,7 @@ fn backdating_works_and_future_is_rejected() {
     let mk = |when: &str| RecordDose {
         medication_id: med.clone(),
         kind: DoseKind::Take,
-        slot_id: None,
-        local_date: None,
+        occurrence_id: None,
         occurred_local: Some(when.into()),
         note: None,
         second_occurrence: None,
@@ -767,7 +769,7 @@ fn backdating_works_and_future_is_rejected() {
 fn medication_versions_are_immutable_snapshots() {
     let (mut c, med) = setup();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     record(&mut c, now, &med, DoseKind::Take, &item).unwrap();
     assert!(c.execute("UPDATE medication_version SET name='Changed'", []).is_err());
     assert_eq!(ledger::history(&c, 10).unwrap()[0].name, "Metformin");
@@ -777,18 +779,18 @@ fn medication_versions_are_immutable_snapshots() {
 fn archive_keeps_history_but_delete_removes_everything() {
     let (mut c, med) = setup();
     let now = "2026-03-10T09:30";
-    let item = ledger::today(&c, ctx(now)).unwrap().remove(0);
+    let item = tday(&c, ctx(now)).remove(0);
     let id = record(&mut c, now, &med, DoseKind::Take, &item).unwrap();
     ledger::correct(&mut c, ctx(now), CorrectDose { event_id: id, kind: Some(DoseKind::Skip), occurred_local: None, note: None, second_occurrence: None }).unwrap();
 
     medication::archive(&c, ctx(now), &med).unwrap();
-    assert!(ledger::today(&c, ctx(now)).unwrap().is_empty());
+    assert!(tday(&c, ctx(now)).is_empty());
     assert_eq!(ledger::history(&c, 10).unwrap().len(), 1);
-    assert!(medication::list(&c).unwrap()[0].archived);
+    assert!(medication::list(&c, &ctx(now)).unwrap()[0].archived);
 
     medication::delete(&mut c, &med).unwrap();
     assert!(ledger::history(&c, 10).unwrap().is_empty());
-    assert!(medication::list(&c).unwrap().is_empty());
+    assert!(medication::list(&c, &ctx(now)).unwrap().is_empty());
 }
 
 #[test]

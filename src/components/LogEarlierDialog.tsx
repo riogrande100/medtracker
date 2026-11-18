@@ -34,7 +34,7 @@ export function LogEarlierDialog({
 
   async function save() {
     try {
-      await api.recordDose({ medication_id: medId, kind, slot_id: null, local_date: null, occurred_local: when, note: note || null });
+      await api.recordDose({ medication_id: medId, kind, occurrence_id: null, occurred_local: when, note: note || null });
       setNote("");
       onOpenChange(false);
       onSaved();

@@ -237,7 +237,7 @@ Four independent-review findings against the slice are being fixed and are folde
 ### B1-04 — Schedule v1 and occurrence engine (wall-clock)
 **Phase 1 · Must · XL · PR-03 (create/end), PR-07, PR-08 (partial)** · **Owner:** T3 design + RV-TIME; T2 implements · **Depends on:** B1-03, B0-04
 - **Acceptance:** create a schedule for a medication with one or more daily/weekday wall-clock slots in `device_local` or `home_zone`, previewing the next seven occurrences with zone abbreviation/offset; immutable `schedule_version`; occurrences materialized per version with local date/time, zone, offset, fold, UTC instant, tzdb version; wall times (including backdated and corrected entries) are resolved with the IANA rules for the entered date, never the current-day offset; DST gap → one occurrence at first valid instant marked adjusted; fold → one occurrence at earlier offset; at most one occurrence per slot per local date; end schedule creates a closing version without backfill. Edit/pause/resume and elapsed-interval mode are **out of scope** (B2-03).
-- **Tests:** the §4 and §10 fixtures (including `2026-03-08T07:00:00Z`); date-line; occurrence uniqueness; end-schedule no backfill.
+- **Tests:** the §4 and §10 fixtures (including `2026-03-08T07:30:00Z`); date-line; occurrence uniqueness; end-schedule no backfill.
 - **Review:** RV-TIME, RV-CODE.
 
 ### B1-05 — Event ledger: take/skip, linking, undo, corrections

@@ -6,10 +6,9 @@ export function msUntilLocalMidnight(now: Date): number {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
 }
 
-/** Milliseconds until today's local time "HH:MM" (negative/zero when already past). */
-function msUntilTime(now: Date, hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime() - now.getTime();
+/** Milliseconds until a scheduled instant (negative/zero when already past). */
+function msUntilInstant(nowMs: number, utcUs: number): number {
+  return utcUs / 1000 - nowMs;
 }
 
 const MAX_TIMEOUT = 2 ** 31 - 1;
@@ -39,7 +38,7 @@ export function useTodayRefresh(items: TodayItem[] | null, refresh: () => unknow
     let next = msUntilLocalMidnight(now);
     for (const i of items ?? []) {
       if (i.status !== "upcoming") continue;
-      const d = msUntilTime(now, i.local_time);
+      const d = msUntilInstant(now.getTime(), i.scheduled_at_utc_us);
       if (d > 0) next = Math.min(next, d);
     }
     // A small cushion so the clock has definitely crossed the boundary when we re-query.

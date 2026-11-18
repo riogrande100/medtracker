@@ -1,7 +1,7 @@
 use crate::error::{invalid, AppResult};
 use chrono::{Local, Offset};
 use jiff::{
-    civil::DateTime,
+    civil::{Date, DateTime},
     tz::{AmbiguousOffset, Offset as JOffset, TimeZone},
     Timestamp,
 };
@@ -14,6 +14,11 @@ use jiff::{
 pub struct Zone {
     tz: TimeZone,
     id: Option<String>,
+}
+
+/// Version of the bundled IANA tz database, recorded on every generated occurrence.
+pub fn tzdb_version() -> &'static str {
+    jiff_tzdb::VERSION
 }
 
 /// A wall-clock time resolved to an instant.
@@ -54,6 +59,23 @@ impl Zone {
 
     pub fn id(&self) -> Option<&str> {
         self.id.as_deref()
+    }
+
+    /// The wall-clock date at an instant, using the offset in force at that instant.
+    pub fn local_date_at(&self, utc_us: i64) -> Date {
+        local_from_utc(utc_us, self.offset_at_utc(utc_us)).date()
+    }
+
+    /// The first instant of a local calendar date (a midnight that falls in a gap moves forward).
+    pub fn day_start(&self, date: Date) -> AppResult<i64> {
+        Ok(self.resolve(date.at(0, 0, 0, 0))?.utc_us)
+    }
+
+    /// Time-zone abbreviation in force at an instant ("EST", "AEDT"); None for fixed-offset fallbacks.
+    pub fn abbreviation_at(&self, utc_us: i64) -> Option<String> {
+        self.id()?;
+        let ts = Timestamp::from_microsecond(utc_us).ok()?;
+        Some(self.tz.to_offset_info(ts).abbreviation().to_string())
     }
 
     /// The offset in force at an instant.
@@ -116,14 +138,17 @@ impl TimeCtx {
         self.zone.offset_at_utc(self.now_utc_us)
     }
 
+    #[cfg(test)]
     fn local_now(&self) -> DateTime {
         local_from_utc(self.now_utc_us, self.offset_now())
     }
 
+    #[cfg(test)]
     pub fn today(&self) -> String {
         fmt_date(self.local_now())
     }
 
+    #[cfg(test)]
     pub fn minutes_now(&self) -> u32 {
         let t = self.local_now();
         t.hour() as u32 * 60 + t.minute() as u32

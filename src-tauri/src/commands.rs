@@ -1,5 +1,5 @@
-use crate::application::{ledger, medication};
-use crate::clock::TimeCtx;
+use crate::application::{ledger, medication, schedule};
+use crate::clock::{TimeCtx, Zone};
 use crate::dto::*;
 use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
@@ -22,7 +22,13 @@ pub struct Db {
 impl Db {
     pub fn open(path: &Path) -> Db {
         match crate::storage::open_report(path) {
-            Ok(o) => Db { conn: Mutex::new(Some(o.conn)), startup_error: None, path: path.to_path_buf(), snapshot: o.snapshot },
+            Ok(o) => {
+                // Schedules migrated from Phase 1 have no zone yet: give them the device's.
+                if let Some(zone) = Zone::detect().id() {
+                    let _ = schedule::adopt_device_zone(&o.conn, zone);
+                }
+                Db { conn: Mutex::new(Some(o.conn)), startup_error: None, path: path.to_path_buf(), snapshot: o.snapshot }
+            }
             Err(e) => Db { conn: Mutex::new(None), startup_error: Some(e), path: path.to_path_buf(), snapshot: None },
         }
     }
@@ -107,7 +113,7 @@ pub fn create_medication(db: State<Db>, input: NewMedication) -> AppResult<Strin
 
 #[tauri::command]
 pub fn list_medications(db: State<Db>) -> AppResult<Vec<MedicationSummary>> {
-    with(&db, |c| medication::list(c))
+    with(&db, |c| medication::list(c, &TimeCtx::system()))
 }
 
 #[tauri::command]
@@ -126,4 +132,47 @@ pub fn delete_medication(db: State<Db>, id: String) -> AppResult<()> {
     with(&db, |c| medication::delete(c, &id))?;
     db.purge_older_snapshots();
     Ok(())
+}
+
+#[tauri::command]
+pub fn create_schedule(db: State<Db>, input: NewSchedule) -> AppResult<String> {
+    with(&db, |c| schedule::create(c, &TimeCtx::system(), input))
+}
+
+/// Saves a new schedule version effective now. Past occurrences and history are not rewritten.
+#[tauri::command]
+pub fn edit_schedule(db: State<Db>, input: EditSchedule) -> AppResult<()> {
+    with(&db, |c| schedule::edit(c, &TimeCtx::system(), input))
+}
+
+#[tauri::command]
+pub fn pause_schedule(db: State<Db>, schedule_id: String) -> AppResult<()> {
+    with(&db, |c| schedule::pause(c, &TimeCtx::system(), &schedule_id))
+}
+
+#[tauri::command]
+pub fn resume_schedule(db: State<Db>, schedule_id: String) -> AppResult<()> {
+    with(&db, |c| schedule::resume(c, &TimeCtx::system(), &schedule_id))
+}
+
+#[tauri::command]
+pub fn end_schedule(db: State<Db>, schedule_id: String) -> AppResult<()> {
+    with(&db, |c| schedule::end(c, &TimeCtx::system(), &schedule_id))
+}
+
+/// The next seven occurrences of a schedule that has not been saved. Writes nothing.
+#[tauri::command]
+pub fn preview_schedule(input: ScheduleInput) -> AppResult<Vec<PreviewOccurrence>> {
+    schedule::preview(&TimeCtx::system(), &input)
+}
+
+#[tauri::command]
+pub fn next_due(db: State<Db>) -> AppResult<Option<NextDue>> {
+    with(&db, |c| schedule::next_due(c, &TimeCtx::system()))
+}
+
+/// Materializes occurrences for an inclusive local date range. Idempotent; returns rows added.
+#[tauri::command]
+pub fn generate_occurrences(db: State<Db>, from: String, to: String) -> AppResult<usize> {
+    with(&db, |c| schedule::generate_range(c, &TimeCtx::system(), &from, &to))
 }

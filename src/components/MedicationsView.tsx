@@ -1,8 +1,9 @@
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useEffect, useState } from "react";
-import { type Api, type MedicationSummary, errorMessage } from "../lib/api";
-import { formatTime, medLabel } from "../lib/format";
+import { type Api, type MedicationSummary, type ScheduleSummary, errorMessage } from "../lib/api";
+import { formatInterval, formatLocal, formatOccurrence, formatTime, formatWeekdays, medLabel, nowLocalInput } from "../lib/format";
 import { InAppErasureNote, UpgradeCopyNote } from "./PrivacyNotes";
+import { ScheduleDialog } from "./ScheduleDialog";
 import { Button, Field, Modal, inputClass } from "./ui";
 
 function AddDialog({ api, open, onOpenChange, onSaved }: { api: Api; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
@@ -45,6 +46,38 @@ function AddDialog({ api, open, onOpenChange, onSaved }: { api: Api; open: boole
   );
 }
 
+function describe(s: ScheduleSummary | null): string {
+  if (!s) return "As needed";
+  const base =
+    s.mode === "elapsed_interval"
+      ? `Every ${formatInterval(s.interval_seconds ?? 0)}, counted from ${s.anchor_utc_us ? formatLocal(nowLocalInput(new Date(s.anchor_utc_us / 1000))) : "the first dose"}`
+      : `${s.slots.length && s.slots[0].weekdays.length ? `${formatWeekdays(s.slots[0].weekdays)} at` : "Daily at"} ${s.slots.map((x) => formatTime(x.time)).join(", ")}${s.zone_id ? ` (${s.zone_id})` : ""}`;
+  return s.state === "paused" ? `${base} — paused` : s.state === "ended" ? `${base} — ended` : base;
+}
+
+function EndDialog({ med, onConfirm }: { med: MedicationSummary; onConfirm: () => void }) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger asChild>
+        <Button aria-label={`End schedule for ${med.name}`}>End schedule</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 bg-black/40" />
+        <AlertDialog.Content className="fixed inset-x-3 top-6 mx-auto max-w-md rounded-xl bg-white p-5 shadow-lg">
+          <AlertDialog.Title className="text-xl font-semibold">End the schedule for {med.name}?</AlertDialog.Title>
+          <AlertDialog.Description className="my-3">
+            {med.name} stops appearing on Today from now on. Everything already recorded stays in History. You can add a new schedule later.
+          </AlertDialog.Description>
+          <div className="flex gap-2">
+            <AlertDialog.Cancel asChild><Button className="flex-1">Keep schedule</Button></AlertDialog.Cancel>
+            <AlertDialog.Action asChild><Button variant="primary" className="flex-1" onClick={onConfirm}>End schedule</Button></AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
+  );
+}
+
 function DeleteDialog({ med, upgradeCopy, onConfirm }: { med: MedicationSummary; upgradeCopy: boolean; onConfirm: () => void }) {
   return (
     <AlertDialog.Root>
@@ -76,6 +109,7 @@ export function MedicationsView({ api, version, onChanged }: { api: Api; version
   const [meds, setMeds] = useState<MedicationSummary[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState("");
+  const [scheduling, setScheduling] = useState<MedicationSummary | null>(null);
   const [upgradeCopy, setUpgradeCopy] = useState(false);
 
   useEffect(() => {
@@ -110,10 +144,27 @@ export function MedicationsView({ api, version, onChanged }: { api: Api; version
           {meds.map((m) => (
             <li key={m.id} className="rounded-xl border border-neutral-300 bg-white p-4">
               <p className="text-lg font-semibold">{medLabel(m.name, m.strength)}{m.archived ? " (archived)" : ""}</p>
-              <p className="text-sm text-neutral-700">
-                {[m.form, m.times.length ? `Daily at ${m.times.map(formatTime).join(", ")}` : "As needed"].filter(Boolean).join(" · ")}
-              </p>
-              <div className="mt-3 flex gap-2">
+              <p className="text-sm text-neutral-700">{[m.form, describe(m.schedule)].filter(Boolean).join(" · ")}</p>
+              {m.schedule?.state === "active" && m.schedule.next[0] && (
+                <p className="text-sm text-neutral-700">Next: {formatOccurrence(m.schedule.next[0])}</p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!m.archived && (
+                  <>
+                    <Button aria-label={`${m.schedule && m.schedule.state !== "ended" ? "Edit schedule" : "Add schedule"} for ${m.name}`} onClick={() => setScheduling(m)}>
+                      {m.schedule && m.schedule.state !== "ended" ? "Edit schedule" : "Add schedule"}
+                    </Button>
+                    {m.schedule?.state === "active" && (
+                      <Button aria-label={`Pause schedule for ${m.name}`} onClick={() => run(() => api.pauseSchedule(m.schedule!.id))}>Pause schedule</Button>
+                    )}
+                    {m.schedule?.state === "paused" && (
+                      <Button aria-label={`Resume schedule for ${m.name}`} onClick={() => run(() => api.resumeSchedule(m.schedule!.id))}>Resume schedule</Button>
+                    )}
+                    {(m.schedule?.state === "active" || m.schedule?.state === "paused") && (
+                      <EndDialog med={m} onConfirm={() => run(() => api.endSchedule(m.schedule!.id))} />
+                    )}
+                  </>
+                )}
                 <Button onClick={() => run(() => api.archiveMedication(m.id, !m.archived))}>
                   {m.archived ? "Restore" : "Archive"}<span className="sr-only"> {m.name}</span>
                 </Button>
@@ -124,6 +175,17 @@ export function MedicationsView({ api, version, onChanged }: { api: Api; version
         </ul>
       )}
       <AddDialog api={api} open={adding} onOpenChange={setAdding} onSaved={onChanged} />
+      {scheduling && (
+        <ScheduleDialog
+          api={api}
+          med={scheduling}
+          onClose={() => setScheduling(null)}
+          onSaved={() => {
+            setScheduling(null);
+            onChanged();
+          }}
+        />
+      )}
     </section>
   );
 }

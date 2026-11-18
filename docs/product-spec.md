@@ -250,7 +250,7 @@ These are not interchangeable. The creation flow must label the mode and preview
 
 These are timestamp illustrations only. The app does not evaluate whether any interval or local time is appropriate.
 
-**New York spring-forward.** On `2026-03-08`, the New York clock jumps from `01:59:59 -05:00` to `03:00:00 -04:00`. A wall-clock slot of 02:30 does not exist. Under the proposed gap policy, its one occurrence resolves to the first valid time, `2026-03-08 03:00 America/New_York (-04:00) = 2026-03-08T07:00:00Z`, marked adjusted. The next date's 02:30 is `2026-03-09T06:30:00Z`.
+**New York spring-forward.** On `2026-03-08`, the New York clock jumps from `01:59:59 -05:00` to `03:00:00 -04:00`. A wall-clock slot of 02:30 does not exist. Under the gap policy (decision D-29: shift forward by the gap length, the same rule as backdated entries), its one occurrence resolves to `2026-03-08 03:30 America/New_York (-04:00) = 2026-03-08T07:30:00Z`, marked adjusted. The next date's 02:30 is `2026-03-09T06:30:00Z`.
 
 **New York fall-back.** On `2026-11-01`, 01:30 occurs once at `-04:00` and again at `-05:00`. The proposed policy creates one occurrence at the earlier fold, `2026-11-01T05:30:00Z`; the second local 01:30 is not a second occurrence. Show the offset so the user can distinguish the instant.
 
@@ -541,7 +541,7 @@ Use synthetic records only:
 - `Daily tablet A`: product snapshot `Example ingredient 5 mg / tablet`, logged amount `1 tablet`, daily 08:00 `America/New_York`, covering 2026-03-07 through 2026-03-10 under the proposed DST gap policy.
 - `As-needed liquid B`: product snapshot `Example ingredient 10 mg/mL`, user-entered amounts `2 mL` and `1.5 mL` on distinct instants; no recurring schedule.
 - For A, create one take occurrence on March 7, one explicitly skipped occurrence on March 8, no event for March 9, and two take events linked to the March 10 occurrence; include one correction and one observation.
-- Expected A occurrence report for these four schedule dates: 4 occurrences total, 2 logged occurrences, 1 explicitly skipped, 1 not logged, 0 conflicts; the two March 10 event rows count once in occurrence totals. The March 8 scheduled instant resolves under policy to `2026-03-08T07:00:00Z`. B contributes two unscheduled events and no scheduled denominator.
+- Expected A occurrence report for these four schedule dates: 4 occurrences total, 2 logged occurrences, 1 explicitly skipped, 1 not logged, 0 conflicts; the two March 10 event rows count once in occurrence totals. The March 8 scheduled instant resolves under policy to `2026-03-08T07:30:00Z`. B contributes two unscheduled events and no scheduled denominator.
 - Render the same events grouped in New York, Los Angeles, original recorded local time, and current-device time. Assert the displayed day can change by zone while UTC/original snapshots remain unchanged.
 
 ### Given/When/Then acceptance criteria

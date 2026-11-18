@@ -1,10 +1,26 @@
-import type { Api, AppError, HistoryEntry, TodayItem } from "../lib/api";
+import type { Api, AppError, HistoryEntry, MedicationSummary, NextDue, PreviewOccurrence, TodayItem } from "../lib/api";
 
 /** Minimal in-memory stand-in for the Rust commands; rules are tested in Rust. */
-export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; olderEntries?: number } = {}): Api {
+export const previewRows = (n = 7): PreviewOccurrence[] =>
+  Array.from({ length: n }, (_, i) => ({
+    scheduled_at_utc_us: 1_773_151_200_000_000 + i * 86_400_000_000, local_date: `2026-03-${String(10 + i).padStart(2, "0")}`,
+    local_time: "08:00", offset_seconds: -18000, zone_id: "America/Chicago", zone_abbreviation: "CDT", adjusted: false,
+  }));
+
+export const defaultMed = (): MedicationSummary => ({
+  id: "m1", name: "Metformin", strength: "500 mg", form: "tablet", archived: false,
+  schedule: {
+    id: "sch1", state: "active", version_number: 1, mode: "home_zone", zone_id: "America/Chicago",
+    slots: [{ time: "08:00", weekdays: [] }], interval_seconds: null, anchor_utc_us: null, effective_from_utc_us: 1, next: previewRows(),
+  },
+});
+
+export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; olderEntries?: number; meds?: MedicationSummary[]; next?: NextDue | null } = {}): Api {
   const slot = (): TodayItem => ({
-    slot_id: "s1", medication_id: "m1", name: "Metformin", strength: "500 mg", form: "tablet",
-    local_date: "2026-03-10", local_time: "08:00", status: "due", event_ids: [],
+    occurrence_id: "o1", schedule_id: "sch1", medication_id: "m1", name: "Metformin", strength: "500 mg", form: "tablet",
+    mode: "home_zone", scheduled_at_utc_us: 1_773_151_200_000_000, local_date: "2026-03-10", local_time: "08:00",
+    zone_id: "America/Chicago", zone_abbreviation: "CDT", offset_seconds: -18000, adjusted: false, device_time: null,
+    status: "due", event_ids: [],
   });
   let today = slot();
   let history: HistoryEntry[] = [];
@@ -56,8 +72,15 @@ export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; 
     },
     upgradeCopyExists: async () => opts.upgradeCopy ?? false,
     createMedication: async () => "m1",
-    listMedications: async () => [{ id: "m1", name: "Metformin", strength: "500 mg", form: "tablet", archived: false, times: ["08:00"] }],
+    listMedications: async () => opts.meds ?? [defaultMed()],
     archiveMedication: async () => {},
     deleteMedication: async () => {},
+    createSchedule: async () => "sch1",
+    editSchedule: async () => {},
+    pauseSchedule: async () => {},
+    resumeSchedule: async () => {},
+    endSchedule: async () => {},
+    previewSchedule: async () => previewRows(),
+    nextDue: async () => opts.next ?? null,
   };
 }

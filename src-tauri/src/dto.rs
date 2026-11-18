@@ -1,3 +1,4 @@
+use crate::domain::schedule::{ScheduleMode, ScheduleState};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -28,41 +29,139 @@ pub struct NewMedication {
     pub name: String,
     pub strength: Option<String>,
     pub form: Option<String>,
-    /// Daily local times, "HH:MM". Empty means as-needed.
+    /// Daily local times, "HH:MM", resolved in the device's zone. Empty means as-needed. For
+    /// weekdays, intervals or another zone, create the schedule with `create_schedule`.
     pub times: Vec<String>,
 }
 
+/// Derived from the occurrence plus its active dose events and the clock; never stored.
 #[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TodayStatus {
+    /// Later today, not yet at its scheduled time.
     Upcoming,
+    /// Scheduled time reached, same local day, nothing recorded.
     Due,
     Taken,
     Skipped,
+    /// Active take and skip both linked: shown for review, never silently resolved.
     Conflict,
+    /// An earlier local day with nothing recorded. Deliberately neutral ("not logged"): the app
+    /// never says "missed" or "overdue" (spec invariant 6).
+    EarlierNotLogged,
 }
 
 #[derive(Debug, Serialize, Clone)]
 pub struct TodayItem {
-    pub slot_id: String,
+    /// The explicit link target for Taken/Skip (spec invariant 10).
+    pub occurrence_id: String,
+    pub schedule_id: String,
     pub medication_id: String,
     pub name: String,
     pub strength: Option<String>,
     pub form: Option<String>,
+    pub mode: ScheduleMode,
+    pub scheduled_at_utc_us: i64,
+    /// Local date and time of the resolved instant in the occurrence's own zone.
     pub local_date: String,
     pub local_time: String,
+    pub zone_id: Option<String>,
+    pub zone_abbreviation: Option<String>,
+    pub offset_seconds: i32,
+    /// The intended wall time did not exist (clock change) and was moved.
+    pub adjusted: bool,
+    /// The same instant on the device's clock, present only when it reads differently.
+    pub device_time: Option<String>,
     pub status: TodayStatus,
-    /// Active (not undone) event ids for this slot today.
+    /// Active (not undone) event ids linked to this occurrence.
     pub event_ids: Vec<String>,
+}
+
+// ---- schedules ----
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SlotInput {
+    /// "HH:MM"
+    pub time: String,
+    /// ISO weekdays, 1 = Monday ... 7 = Sunday. Empty = every day.
+    #[serde(default)]
+    pub weekdays: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ScheduleInput {
+    pub mode: ScheduleMode,
+    /// `home_zone`: required IANA zone id. Must be absent for `elapsed_interval`.
+    pub zone_id: Option<String>,
+    #[serde(default)]
+    pub slots: Vec<SlotInput>,
+    /// `elapsed_interval`: seconds between doses.
+    pub interval_seconds: Option<i64>,
+    /// `elapsed_interval`: the first dose, "YYYY-MM-DDTHH:MM" on the device clock. Absent = now
+    /// when creating, or keep the current anchor when editing.
+    pub anchor_local: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewSchedule {
+    pub medication_id: String,
+    pub definition: ScheduleInput,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EditSchedule {
+    pub schedule_id: String,
+    pub definition: ScheduleInput,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq)]
+pub struct SlotDto {
+    pub time: String,
+    pub weekdays: Vec<u8>,
+}
+
+/// One expected occurrence shown before saving, in the schedule summary, or as "next due".
+#[derive(Debug, Serialize, Clone, PartialEq)]
+pub struct PreviewOccurrence {
+    pub scheduled_at_utc_us: i64,
+    pub local_date: String,
+    /// Resolved local time (after any clock-change adjustment).
+    pub local_time: String,
+    pub offset_seconds: i32,
+    pub zone_id: Option<String>,
+    pub zone_abbreviation: Option<String>,
+    pub adjusted: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ScheduleSummary {
+    pub id: String,
+    pub state: ScheduleState,
+    pub version_number: i64,
+    pub mode: ScheduleMode,
+    pub zone_id: Option<String>,
+    pub slots: Vec<SlotDto>,
+    pub interval_seconds: Option<i64>,
+    pub anchor_utc_us: Option<i64>,
+    pub effective_from_utc_us: i64,
+    /// The next seven occurrences while active; empty when paused or ended.
+    pub next: Vec<PreviewOccurrence>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct NextDue {
+    pub medication_id: String,
+    pub name: String,
+    pub strength: Option<String>,
+    pub occurrence: PreviewOccurrence,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RecordDose {
     pub medication_id: String,
     pub kind: DoseKind,
-    pub slot_id: Option<String>,
-    /// Local date of the slot, "YYYY-MM-DD". Required with slot_id.
-    pub local_date: Option<String>,
+    /// The scheduled occurrence this action is for (the explicit link). Absent = unscheduled dose.
+    pub occurrence_id: Option<String>,
     /// Backdated local datetime "YYYY-MM-DDTHH:MM"; absent means now.
     pub occurred_local: Option<String>,
     pub note: Option<String>,
@@ -141,5 +240,6 @@ pub struct MedicationSummary {
     pub strength: Option<String>,
     pub form: Option<String>,
     pub archived: bool,
-    pub times: Vec<String>,
+    /// Most recent schedule for this medication; None = as needed.
+    pub schedule: Option<ScheduleSummary>,
 }
