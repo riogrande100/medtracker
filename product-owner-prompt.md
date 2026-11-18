@@ -24,6 +24,8 @@ Phase 1: Product Discovery & User Flow Design
 
 Before any UI design or coding begins, create a complete understanding of how MedTracker operates.
 
+The primary workflow is a non-technical user's daily medication-taking flow. Optimize for a product-owner-identified user being able to open Today, understand what is due, tap Taken or Skip, and see a clear confirmation with Undo. Account setup, reports, and detailed medication editing must not obstruct that path.
+
 Deliverables
 
 1. User Personas
@@ -48,17 +50,16 @@ Build a comprehensive application flow using Mermaid diagrams.
 This must illustrate:
 
 flowchart TD
-A[Launch App] --> B[Authentication]
-B --> C[Dashboard]
-C --> D[Medication Management]
-C --> E[Reminders]
-C --> F[Reports]
-C --> G[Settings]
+A[Launch App] --> B[Today]
+B --> C[View Due Medications]
+C --> D[Taken or Skip]
+D --> E[Confirmation and Undo]
+B --> F[Medication Management]
+B --> G[History and Reports]
+B --> H[Settings]
 
 The actual flow should be significantly more detailed and include:
 
-Registration
-Login
 Onboarding
 Medication setup
 Scheduling
@@ -67,8 +68,8 @@ Medication history
 Alerts
 Reports
 Settings
-Subscription flow (if applicable)
-Backup and sync
+Backup and restore
+Optional health connection, permission, and revocation
 
 No UI design work may begin until the user flow has been reviewed and approved.
 
@@ -142,7 +143,7 @@ Theme architecture should support future expansion without redesigning component
 
 Phase 4: Mockup Approval Process
 
-Before any engineering work begins:
+Before production feature work begins:
 
 Required Deliverables
 
@@ -162,7 +163,7 @@ Review Gate
 
 All mockups must be submitted to stakeholders for approval.
 
-No implementation work may begin until approval is received.
+Feasibility spikes for native reminders, platform builds, health APIs, and the core Today/Taken interaction may proceed in parallel with mockup review. Production feature implementation must use the approved flow.
 
 If feedback is provided:
 
@@ -171,7 +172,7 @@ Update user journeys.
 Update flows if necessary.
 Re-submit for approval.
 
-Only approved designs move to development.
+Only approved designs move to production development.
 
 Phase 5: Engineering Planning
 
@@ -191,73 +192,29 @@ Document all engineering decisions.
 Phase 6: Development Strategy
 Platforms
 
-Build:
+Primary targets:
 
-Desktop
+Mobile:
 
-Primary production target:
+- iOS
+- Android
 
-Linux Desktop
-Mobile
+Desktop:
 
-Future targets:
+- Windows
+- macOS
 
-Android
-iOS
-Additional Desktop Platforms
-
-Local verification only:
-
-Windows
-macOS
 CI/CD Governance
 GitHub Actions Policy
 
-The repository CI/CD pipeline must initially build only:
+CI/CD should validate low-cost shared checks on every change. Mobile feasibility builds should begin first for the Today/Taken workflow, followed by signed Windows and macOS packaging as platform gates are reached.
 
-Linux Desktop
+Avoid unnecessary paid build minutes by:
 
-CI/CD must NOT automatically build:
-
-Windows
-macOS
-Android
-iOS
-
-These platforms should only:
-
-Compile
-Run locally
-Validate functionality
-
-during development.
-
-This minimizes:
-
-Build minutes
-Infrastructure costs
-Maintenance complexity
-Mobile Release Enablement
-
-Only after:
-
-Linux desktop version is complete
-QA passes
-Stakeholder approval obtained
-Release criteria met
-
-may the GitHub Actions workflows be expanded to include:
-
-Android Builds
-iOS Builds
-
-At that point:
-
-Mobile release pipelines
-Signing workflows
-Store deployment workflows
-
-may be introduced.
+- Running full platform matrices only for release candidates or targeted platform changes.
+- Reusing pinned dependencies and caches.
+- Performing early signed-build and permission spikes before expensive release automation.
+- Recording platform-specific pass/fail criteria rather than assuming feature parity.
 
 Cost Optimization Requirements
 
@@ -295,9 +252,10 @@ Favor:
 
 Reusable components
 Shared services
-Offline-first architecture where practical
+Local-first medication records with resilient daily use during network failures
+Explicit, optional network integrations with visible consent
 Efficient local processing
-Minimal cloud dependencies
+Minimal services and dependencies
 
 Avoid:
 
@@ -334,8 +292,10 @@ Validate:
 
 Startup time
 Memory usage
-Sync performance
+Health-integration and network performance
 Notification reliability
+Core Today-to-Taken task completion
+Health integration timeout, duplicate, revocation, and retry behavior
 Phase 8: Release Readiness
 
 Before release:
@@ -356,10 +316,8 @@ Topics to evaluate:
 
 Desktop
 Code signing strategy
-Linux package signing
-AppImage signing
-Snap Store requirements
-Flatpak distribution options
+Windows package signing and installer distribution
+macOS signing, notarization, and desktop distribution
 Android
 Play App Signing
 Keystore management
@@ -369,6 +327,7 @@ Apple Developer Program
 Distribution certificates
 TestFlight deployment
 App Store submission process
+Android and Google health permissions
 
 Document:
 
@@ -386,9 +345,11 @@ The MedTracker project is considered successful when:
 User flows are documented in Mermaid.
 UX journeys are completed.
 Vercel Geist-based UI designs are approved.
-Linux desktop application is production-ready.
+iOS, Android, Windows, and macOS have documented, validated release paths.
+Routine medication logging is understandable to the intended primary user.
+Android/Google health integration is implemented only if its feasibility and privacy gates pass.
 CI/CD costs are minimized.
-Mobile pipelines are introduced only after desktop approval.
+Platform-specific capabilities are released independently after their own quality gates.
 Accessibility requirements are met.
 Signing and distribution strategies have been tested and documented.
 The product meets quality standards without unnecessary infrastructure or operational cost.
