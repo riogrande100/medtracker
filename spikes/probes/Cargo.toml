@@ -1,0 +1,17 @@
+[package]
+name = "medtracker-phase0-probes"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Throwaway Phase 0 host-side probes for MedTracker. Not application code."
+
+[workspace]
+
+[dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
+chrono-tz = "=0.10.4"
+jiff = { version = "1.0.1", features = ["tzdb-bundle-always"] }
+jiff-tzdb = "1.0.0"
+iana-time-zone = "0.1.65"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
