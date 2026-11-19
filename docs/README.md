@@ -16,3 +16,5 @@ MedTracker is a local-first medication log (Tauri 2, Rust core, React/TypeScript
 Related files at the repository root: [product-owner-prompt.md](../product-owner-prompt.md) (product-owner brief), [start-prompt.md](../start-prompt.md) (original planning brief), [MOBILE.md](../MOBILE.md) (host/mobile status of the Phase 1 slice).
 
 When documents disagree, the product spec wins. Add new IDs only after checking the spec and registers for collisions.
+
+- [catalog-legal-questions.md](catalog-legal-questions.md): draft questions for legal review of the bundled medication list (GT-LIC).
