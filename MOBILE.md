@@ -14,7 +14,7 @@ npm run tauri:android-init   # tauri android init -> src-tauri/gen/android (gene
 - iOS: `tauri ios init --ci` succeeded on this host (Xcode present). Not yet built or run on a simulator/device;
   signing (Apple team ID) and a simulator run remain open.
 - Android: BLOCKED. `tauri android init` fails: Android SDK/NDK not found (`ANDROID_HOME`/`NDK_HOME` unset).
-- Windows and macOS desktop: DEFERRED by owner decision D-29 (2026-11-19); no desktop release in the first release. Android build setup is pending on the Mac Studio (B0-10).
+- Windows and macOS desktop: DEFERRED by owner decision D-29 (2026-11-18); no desktop release in the first release. Android build setup is pending on the Mac Studio (B0-10).
 
 ## Open items
 

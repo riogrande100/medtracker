@@ -1,4 +1,4 @@
-# Catalog spike sources (fetched 2026-11-19 UTC unless noted)
+# Catalog spike sources (fetched 2026-11-18 UTC unless noted)
 
 | # | URL | Used for |
 |---|-----|----------|
@@ -14,5 +14,5 @@
 | 10 | https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory | NDC Directory scope, daily update, caveats, exclusions |
 | 11 | https://dailymed.nlm.nih.gov/dailymed/app-support-download-data.cfm and .../app-support-web-services.cfm | DailyMed downloads and web services; page itself states no reuse license (links to nlm.nih.gov/copyright.html, not read) |
 | 12 | https://ods.od.nih.gov/Research/Dietary_Supplement_Label_Database/ (HTTP 403 on fetch) and https://dsld.od.nih.gov/downloads (empty on fetch); web search snippets only | DSLD: UNVERIFIED terms |
-| 13 | HEAD https://download.nlm.nih.gov/rxnorm/RxNorm_full_prescribe_11022026.zip | Content-Length 75,032,750 bytes (2026-11-19) |
+| 13 | HEAD https://download.nlm.nih.gov/rxnorm/RxNorm_full_prescribe_11022026.zip | Content-Length 75,032,750 bytes (2026-11-18) |
 | 14 | RxTerms202611 release notes (inside zip #6) | Per-TTY counts; contains no licence/attribution text (grep) |

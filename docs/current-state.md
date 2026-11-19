@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-11-18 · **Branch:** `main` @ `ec55cfa` · **Author scope:** planning/documentation only.
 
-This is a baseline report, not a plan. Facts below come from the repository tree, [handoff-2026-11-18-paused.md](handoff-2026-11-18-paused.md), and `spikes/HANDOFF.md`. Anything not observed by an artifact is labeled **unverified**. **Scope update 2026-11-19 (owner decision D-29): the first release is mobile only (iOS + Android); Windows and macOS desktop are deferred, not removed.** **Scope update 2026-11-19 (owner decision D-31): the first release is U.S.-only** (U.S. English, U.S. catalog, U.S. conventions by default; no localization). Product direction is in [product-spec.md](product-spec.md#authoritative-product-direction); this file records only what exists.
+This is a baseline report, not a plan. Facts below come from the repository tree, [handoff-2026-11-18-paused.md](handoff-2026-11-18-paused.md), and `spikes/HANDOFF.md`. Anything not observed by an artifact is labeled **unverified**. **Scope update 2026-11-18 (owner decision D-29): the first release is mobile only (iOS + Android); Windows and macOS desktop are deferred, not removed.** **Scope update 2026-11-18 (owner decision D-31): the first release is U.S.-only** (U.S. English, U.S. catalog, U.S. conventions by default; no localization). Product direction is in [product-spec.md](product-spec.md#authoritative-product-direction); this file records only what exists.
 
 ## 1. What exists on `main`
 
@@ -37,7 +37,7 @@ Other gaps against the backlog observed in an earlier read and not yet audited: 
 | `chrono-tz` 0.10.4 bundles tzdb 2025b, stale against IANA 2026f (released 2026-10-27); `jiff` 1.x with bundled tzdb is recommended (D-04a). | Library finding from the host spike; **not a device claim**. Spec updated. |
 | Tauri notification plugin: `Schedule` is mobile-only; desktop notifications are immediate; Android falls back to inexact alarms when exact-alarm access is missing; iOS `Schedule.at` is an elapsed-time trigger. | Read from documentation and source; **no device run**. |
 | HealthKit and Android/Google health: medication-dose support exists only on recent OS versions or experimental APIs, or is unestablished; the Google Health API is a cloud OAuth API. | Documentation, plus a simulator-only spike (B0-09, 2026-11-18). Health-platform integration is **NOT PURSUED** (owner decision D-30). |
-| Catalog source spike (2026-11-19, [spikes/catalog/FINDINGS.md](../spikes/catalog/FINDINGS.md)): recommended MVP source is RxTerms (monthly) with NLM RxNorm Current Prescribable Content as provenance baseline; supplements not covered; several redistribution terms UNVERIFIED. | Research only. **GT-LIC NOT PASSED**; no catalog data exists in the repository (B0-03). |
+| Catalog source spike (2026-11-18, [spikes/catalog/FINDINGS.md](../spikes/catalog/FINDINGS.md)): recommended MVP source is RxTerms (monthly) with NLM RxNorm Current Prescribable Content as provenance baseline; supplements not covered; several redistribution terms UNVERIFIED. | Research only. **GT-LIC NOT PASSED**; no catalog data exists in the repository (B0-03). |
 
 Spike recommendations are provisional and carry no device evidence: iOS/Android reminders DEFER, Windows/macOS plugin scheduling NO-GO (desktop deferred, D-29), `device_local` DEFER, health import NO-GO for MVP, and health-platform integration is closed as not pursued (D-30). **Next planned work (D-30):** B2-02 search-as-you-type from a locally bundled catalog (GT-LIC-gated; manual entry always available).
 
@@ -58,7 +58,7 @@ Consequence: macOS and an iOS simulator are plausible on this host; it remains t
 
 | # | Conflict | Resolution |
 |---|---|---|
-| 1 | iOS-first vs four primary targets | Four primary targets, none first (PR-16, PR-24, D-05). **Superseded for the first release by owner decision D-29 (2026-11-19): mobile only (iOS + Android); Windows/macOS deferred, not removed.** Release order between the two mobile targets still comes from per-platform evidence. |
+| 1 | iOS-first vs four primary targets | Four primary targets, none first (PR-16, PR-24, D-05). **Superseded for the first release by owner decision D-29 (2026-11-18): mobile only (iOS + Android); Windows/macOS deferred, not removed.** Release order between the two mobile targets still comes from per-platform evidence. |
 | 2 | Linux-first production target and CI | Linux non-primary, gates nothing (D-08, D-26). |
 | 3 | Authentication, registration, subscription, "backup and sync" in the old PO prompt | Removed (PR-22); local backup/restore only. |
 | 4 | No engineering before mockup approval | Design review is parallel; usability is a Phase 3 gate (PR-27, D-07). |

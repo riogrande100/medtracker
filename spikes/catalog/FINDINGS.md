@@ -1,6 +1,6 @@
 # Catalog source spike (B0-03 input) - FINDINGS
 
-Date: 2026-11-19. Status: research only. **GT-LIC is NOT PASSED; this document does not pass it.** Nothing here is legal advice; items marked LAWYER need counsel.
+Date: 2026-11-18. Status: research only. **GT-LIC is NOT PASSED; this document does not pass it.** Nothing here is legal advice; items marked LAWYER need counsel.
 Labels: DOCUMENTED = stated on a fetched page (see sources.md, # refs); UNVERIFIED = inferred, not found, or fetch failed; MEASURED = observed locally in RxTerms202611.
 
 ## 1. Candidate sources

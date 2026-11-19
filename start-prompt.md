@@ -1,6 +1,6 @@
 Act as a senior product architect, Rust/Tauri engineer, and UX designer. Create or revise an implementation-ready product specification and phased engineering roadmap for the application described below.
 
-**Scope amendment (2026-11-19, owner decision D-29):** the first release is mobile only (iOS + Android). Windows and macOS desktop are deferred, not removed; the original definition of done (four signed builds) is amended accordingly for the first release. Where this brief lists four targets, read it as the long-term intent; `docs/product-spec.md` governs.
+**Scope amendment (2026-11-18, owner decision D-29):** the first release is mobile only (iOS + Android). Windows and macOS desktop are deferred, not removed; the original definition of done (four signed builds) is amended accordingly for the first release. Where this brief lists four targets, read it as the long-term intent; `docs/product-spec.md` governs.
 
 **Status of this brief:** the merged specification in `docs/product-spec.md` is authoritative and supersedes this brief wherever they differ; read `docs/README.md` and `docs/current-state.md` first. A Phase 1 vertical slice already exists in the repository and is not accepted evidence. Reuse the stable requirement IDs (PR-xx), decision IDs (D-xx), gate names (G0-G4, GT-*), and ticket IDs (Bx-xx) already defined in `docs/`; do not invent new ones that collide.
 
@@ -37,7 +37,7 @@ This is a logging, scheduling, and reporting tool—not a medical-advice tool. I
 - Update the catalog only through app releases.
 - Permit manual medication entry.
 - iOS and Android are the first-release targets; Windows and macOS are deferred (D-29). No target is first by assumption (not iOS-first, not Linux-first). Recommend staged validation and release order from per-platform evidence without treating their notification capabilities as equivalent.
-- HealthKit and Android Health Connect / Google health integrations are NOT PURSUED (owner decision D-30, 2026-11-19; the app is standalone). An external platform's acceptance never proves a dose was taken. Faster medication entry comes from a bundled offline catalog (GT-LIC-gated) with manual entry always available.
+- HealthKit and Android Health Connect / Google health integrations are NOT PURSUED (owner decision D-30, 2026-11-18; the app is standalone). An external platform's acceptance never proves a dose was taken. Faster medication entry comes from a bundled offline catalog (GT-LIC-gated) with manual entry always available.
 - Model policy for delegated work: Haiku 5.5 for mechanical and documentation tasks, Sonnet 5.5 for standard implementation, and Sonnet 5.5 with high reasoning for DST/time-zone, backup, security, and architecture.
 - Favor a small, maintainable architecture suitable for an initial solo-developer implementation.
 - Do not invent app-size, performance, or delivery-time guarantees.
