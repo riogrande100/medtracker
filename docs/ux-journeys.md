@@ -4,7 +4,7 @@
 
 **Primary experience:** a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** an accidental action.
 
-No sign-in, registration, subscription, or sync appears anywhere in these flows (PR-22). The app is local-first: every flow below works with no connectivity, and the runtime network allowlist is currently empty (PR-23). Optional health-platform integration (PR-28) is feasibility-only and has no screen here until it is authorized; if it is ever added, its failure must never hide or block the flows in this document.
+No sign-in, registration, subscription, or sync appears anywhere in these flows (PR-22). The app is local-first: every flow below works with no connectivity, and the runtime network allowlist is currently empty (PR-23). Health-platform integration is not pursued (PR-28 withdrawn; D-30), so no health screen exists here; no flow depends on any external platform.
 
 ## 1. Personas (scoped)
 

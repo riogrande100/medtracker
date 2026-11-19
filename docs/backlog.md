@@ -3,7 +3,7 @@
 **Status:** Planning artifact. No ticket below is accepted as Done. A Phase 1 vertical slice (Tauri 2 + React/TypeScript/Vite + Rust, SQLite migrations, snapshots, ledger, History) already exists on `main` ([current-state.md](current-state.md)); it is a candidate starting point, not accepted work. Per governance rule 5 below, that code counts toward a ticket only after the ticket's tests and independent reviews pass, and four independent-review findings against it are being fixed first (see Phase 1 introduction).
 **Governs with:** [product-spec.md](product-spec.md) (requirements `PR-xx`, phases, gates) · [registers.md](registers.md) (decisions `D-xx`, gates `GT-xx`) · [release-evidence.md](release-evidence.md).
 
-The primary experience this backlog optimizes: a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** (PR-19–PR-21). **First release scope is mobile only (iOS + Android) by owner decision D-29 (2026-11-19).** Windows and macOS desktop are DEFERRED, not removed (see [Deferred section](#deferred-desktop-tickets-d-29)); the original four-target definition of done is amended for the first release. PR-24 now reads as: iOS and Android are the release targets; Windows/macOS re-enter only under the D-29 criterion. Excluded: accounts, auth, subscriptions, arbitrary sync, ads, analytics, dose recommendations, interaction checking, clinical claims (PR-22). Local SQLite is the source of truth and connectivity loss never blocks local logging (PR-01); the runtime network allowlist is currently empty (PR-23). Optional health-platform work is feasibility-only and non-blocking (PR-28, B0-09, B4-07).
+The primary experience this backlog optimizes: a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** (PR-19–PR-21). **First release scope is mobile only (iOS + Android) by owner decision D-29 (2026-11-19).** Windows and macOS desktop are DEFERRED, not removed (see [Deferred section](#deferred-desktop-tickets-d-29)); the original four-target definition of done is amended for the first release. PR-24 now reads as: iOS and Android are the release targets; Windows/macOS re-enter only under the D-29 criterion. Excluded: accounts, auth, subscriptions, arbitrary sync, ads, analytics, dose recommendations, interaction checking, clinical claims (PR-22). Local SQLite is the source of truth and connectivity loss never blocks local logging (PR-01); the runtime network allowlist is currently empty (PR-23). Health-platform integration is NOT PURSUED (owner decision D-30, 2026-11-19; PR-28): B0-09 is closed on its simulator spike and B4-07 is closed as not pursued. The preferred way to speed up medication entry is a bundled offline catalog with search-as-you-type (B2-01, B2-02; GT-LIC-gated), with manual entry always available.
 
 ## Governance rules
 
@@ -81,10 +81,9 @@ flowchart LR
     B001 --> B010[B0-10 Android SDK/NDK + mobile sim setup]:::cp
     B006[B0-06 desktop notif spike DEFERRED]
     B001 --> B007[B0-07 egress harness]
-    B001 --> B009[B0-09 optional health feasibility]
+    B001 --> B009[B0-09 health feasibility: CLOSED, D-30]
     B003[B0-03 catalog license]
     B002 & B003 & B004 & B005 & B007 --> B008[B0-08 G0 synthesis]
-    B009 -. non-blocking .-> B008
   end
   subgraph P1[Phase 1 core loop]
     B101[B1-01 shell]:::cp --> B102[B1-02 SQLite]:::cp --> B103[B1-03 medications]:::cp
@@ -97,7 +96,7 @@ flowchart LR
   end
   B001 --> B101
   subgraph P2[Phase 2]
-    B201[B2-01 catalog pipeline] --> B202[B2-02 catalog UI]
+    B201[B2-01 catalog pipeline] --> B202[B2-02 catalog search-as-you-type: NEXT PLANNED, D-30]
     B003 -. GT-LIC .-> B202
     B104 & B105 --> B203[B2-03 versioning] --> B204[B2-04 reports queries] --> B205[B2-05 charts]
     B008 -. G0 .-> B206[B2-06 mobile reminders]
@@ -119,7 +118,7 @@ flowchart LR
   B109 --> B302
   B209 & B212 --> B304
   B310 --> B401[B4-01 remaining targets]
-  B009 -. optional .-> B407[B4-07 health integration]
+  B407[B4-07 health integration: CLOSED, not pursued (D-30)]
   classDef cp stroke-width:3px,stroke:#000;
 ```
 
@@ -196,11 +195,12 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 - **Tests:** RV-DOC consistency pass across all docs.
 - **Review:** RV-HUMAN (product-owner acceptance) → **G0**.
 
-### B0-09 — Optional health-platform feasibility (non-blocking)
-**Phase 0 · Could · M · PR-28, PR-01, PR-05** · **Owner:** T3 research; **H** authorizes and runs devices · **Depends on:** B0-01 · **Requires separate user authorization before any work starts**
-**Files:** `docs/evidence/B0-09/**`, `spikes/B0-09/**` (if a prototype is authorized)
+### B0-09 — Health-platform feasibility (CLOSED: spike done; not pursued, D-30)
+**Phase 0 · Could · M · PR-28, PR-01, PR-05** · **Owner:** T3 research; **H** authorizes and runs devices · **Status: DONE (closed 2026-11-19 by D-30; not pursued).** · **Depends on:** B0-01 · Authorized by the product owner for the simulator spike (2026-11-18)
+**Files:** `docs/evidence/B0-09/**`, `spikes/healthkit-ios/**` (simulator spike; throwaway)
 - **Acceptance:** a written go/no-go per platform for HealthKit (iOS) and Android Health Connect / Google health: supported data types, whether medication records can be read or written at all, permissions and consent, OS/version requirements, whether the integration is on-device or needs the network (and so needs a PR-23 allowlist entry), whether Tauri needs a native bridge, duplicate/provenance handling, and revocation. Un-run device checks are marked **not run**. Platform acceptance of a record is documented as not proving a dose was taken.
-- **Tests:** none required for a document-only outcome; any prototype is throwaway under `spikes/B0-09/`.
+- **Result (simulator only; no physical-device evidence; no HLT-IOS scenario PASS):** [spikes/healthkit-ios/FINDINGS.md](../spikes/healthkit-ios/FINDINGS.md). Verdict DEFER, then closed as NOT PURSUED by owner decision D-30 (2026-11-19).
+- **Tests:** none required; the spike is throwaway under `spikes/healthkit-ios/`.
 - **Review:** RV-SEC, RV-HUMAN. **Does not block G0, Phase 1, Phase 2, or any release.**
 
 ---
@@ -299,9 +299,9 @@ Four independent-review findings against the slice are being fixed and are folde
 - **Tests:** deterministic-output hash; FTS matches; refusal test; retired/merged ID diff test.
 - **Review:** RV-CODE, RV-SEC.
 
-### B2-02 — Catalog bundle and search UI (GT-LIC-gated)
-**Phase 2 · Should · M · PR-02, PR-25** · **Owner:** T2 · **Depends on:** B2-01, B1-03, **GT-LIC passed**
-- **Acceptance:** search by name/ingredient/strength/form with no network; selection creates a snapshot; "no longer current" note for retired entries; attribution/currentness text in About; without GT-LIC the feature is flag-off and absent from distributed builds.
+### B2-02 — Catalog bundle and search-as-you-type UI (GT-LIC-gated; NEXT PLANNED, D-30)
+**Phase 2 · Should (next planned work, D-30) · M · PR-02, PR-25** · **Owner:** T2 · **Depends on:** B2-01, B1-03, **GT-LIC passed**
+- **Acceptance:** search-as-you-type from the locally bundled list (name/ingredient/strength/form) with no network, and manual entry always remains available; selection creates a snapshot; "no longer current" note for retired entries; attribution/currentness text in About; without GT-LIC the feature is flag-off and absent from distributed builds.
 - **Tests:** search latency measured on the real file; snapshot unchanged after catalog swap; build-flag test.
 - **Review:** RV-CODE, RV-HUMAN (licensing artifacts).
 
@@ -456,9 +456,9 @@ Each Phase 3 ticket is executed per mobile target (iOS, Android) and recorded in
 **Phase 4 · Could · S · PR-23** · **Owner:** T3 · **Depends on:** B3-10
 - **Acceptance:** decision record; adopting an updater adds an allowlist entry and requires the PR-23 process, or the decision is "stores/installers only".
 
-### B4-07 — Optional health integration (conditional)
-**Phase 4 · Could · XL · PR-28, PR-01, PR-05, PR-23** · **Owner:** T2; T3 for RV-SEC · **Depends on:** B0-09 go verdict, separate user authorization, B3-10
-- **Acceptance:** built only if B0-09 returned go for that platform and the product owner authorizes it; explicit per-platform authorization and revocation; imported records carry source/provenance and require user-reviewed duplicate decisions before becoming ledger events; export is explicit; platform acceptance is never labeled a verified dose; failure, denial, or revocation leaves Today, logging, and history fully usable; any network endpoint passes the PR-23 allowlist process first. Otherwise closed as won't-do.
+### B4-07 — Health integration (CLOSED: not pursued, D-30)
+**Phase 4 · Could · XL · PR-28, PR-01, PR-05, PR-23** · **Status: CLOSED as not pursued (owner decision D-30, 2026-11-19); not built.** · **Owner:** T2; T3 for RV-SEC · **Depends on:** none (B0-09 closed; re-entry only per D-30)
+- **Acceptance (not pursued, D-30):** not built. Re-entry only per the D-30 criterion (explicit owner request AND a need a bundled catalog cannot meet AND all HLT-* scenarios PASS on physical devices); if re-entered, these criteria apply: explicit per-platform authorization and revocation; imported records carry source/provenance and require user-reviewed duplicate decisions before becoming ledger events; export is explicit; platform acceptance is never labeled a verified dose; failure, denial, or revocation leaves Today, logging, and history fully usable; any network endpoint passes the PR-23 allowlist process first. Otherwise closed as won't-do.
 - **Tests:** duplicate-candidate, revoked-authorization, adapter-failure-leaves-ledger-unchanged, and "no adapter writes a take event" tests.
 - **Review:** RV-SEC, RV-CODE, RV-HUMAN.
 

@@ -1,9 +1,9 @@
 # Medtracker Product Specification and Engineering Roadmap
 
-**Status:** Proposed; reconciled 2026-11-18 (amended 2026-11-19 by owner decision D-29: first release is mobile only) against the latest product direction (see [Authoritative product direction](#authoritative-product-direction)). This document supersedes the earlier "Amendment A" draft and the user-friendly cross-platform revision, both merged here (the draft is kept at [planning-draft/product-spec.amendment-a.md](planning-draft/product-spec.amendment-a.md) for history only). A Phase 1 vertical slice exists in the repository but is not accepted evidence (see [current-state.md](current-state.md)).
+**Status:** Proposed; reconciled 2026-11-18 (amended 2026-11-19 by owner decisions D-29: first release is mobile only; and D-30: standalone app, health-platform integration not pursued) against the latest product direction (see [Authoritative product direction](#authoritative-product-direction)). This document supersedes the earlier "Amendment A" draft and the user-friendly cross-platform revision, both merged here (the draft is kept at [planning-draft/product-spec.amendment-a.md](planning-draft/product-spec.amendment-a.md) for history only). A Phase 1 vertical slice exists in the repository but is not accepted evidence (see [current-state.md](current-state.md)).
 
 **Evidence checked:** 2026-11-14 (external facts were not re-verified during reconciliation; Phase 0 tickets re-verify them)
-**Scope assumption:** U.S.-focused personal medication companion; one local data set per device; **the first release targets iOS and Android only (owner decision D-29, 2026-11-19); Windows and macOS desktop are DEFERRED, not removed**. The code remains one shared codebase and keeps building on the macOS dev host for iteration and tests. Neither mobile target is ranked ahead of the other by assumption; each ships only when its own evidence matrix ([release-evidence.md](release-evidence.md)) is complete. Linux is not a primary target and gates nothing.
+**Scope assumption:** U.S.-focused standalone personal medication companion (no health-platform integration, D-30); one local data set per device; **the first release targets iOS and Android only (owner decision D-29, 2026-11-19); Windows and macOS desktop are DEFERRED, not removed**. The code remains one shared codebase and keeps building on the macOS dev host for iteration and tests. Neither mobile target is ranked ahead of the other by assumption; each ships only when its own evidence matrix ([release-evidence.md](release-evidence.md)) is complete. Linux is not a primary target and gates nothing.
 
 **Companion documents:** [README.md](README.md) (index) · [current-state.md](current-state.md) (baseline) · [backlog.md](backlog.md) (tickets; source of truth for ticket detail) · [registers.md](registers.md) (capabilities, deferred/excluded features, decisions, gates) · [ux-journeys.md](ux-journeys.md) (personas, journeys, Mermaid flows) · [release-evidence.md](release-evidence.md) (per-platform evidence matrices).
 
@@ -17,10 +17,11 @@ This section overrides any conflicting text in this document, `start-prompt.md`,
 4. **Local-first:** the local SQLite ledger is the source of truth. Connectivity loss or an integration failure must never block local logging, correction, or history (PR-01).
 5. **Excluded:** accounts, authentication, subscriptions, arbitrary cloud sync, ads, analytics, telemetry, dose recommendations, interaction checking, and clinical claims (PR-22).
 6. **Network:** web access is allowed only for reviewed features, through an explicit runtime network allowlist (PR-23, §9). The allowlist is **currently empty**; the MVP ships with no runtime network feature.
-7. **Health platforms:** HealthKit (iOS) and Android/Google health APIs are optional, separately authorized feasibility work that must not block the MVP; an external platform's acceptance of a record never proves that a dose was taken (PR-28).
+7. **Health platforms (not pursued, D-30):** HealthKit (iOS) and Android Health Connect / Google health integrations are closed as not pursued; the MVP is standalone. An external platform's acceptance of a record never proves that a dose was taken (PR-28).
 8. **UI:** Geist-inspired visual language with locally bundled fonts and assets (PR-17, D-14).
 9. **No mockup-approval gate blocks Phase 1 engineering.** Design review runs in parallel; stakeholder usability evidence is a Phase 3 release gate, not a Phase 1 start condition.
 10. **Phases 0–4 are the only delivery phases.** The nine "Phase 1–9" headings formerly in `product-owner-prompt.md` are re-expressed as workstreams WS-1–WS-9 mapped onto Phases 0–4 ([Workstream mapping](#workstream-mapping)).
+11. **Medication-entry speed-up (D-30, 2026-11-19):** the preferred route is a bundled offline medication catalog with search-as-you-type (B2-01, B2-02), the next planned Phase 2 work. It stays gated by GT-LIC (PR-25) and the U.S. prescription scope (D-25); manual entry always remains available; catalog data never proves or changes a dose.
 11. **Model policy:** Haiku 5.5 for mechanical/documentation work, Sonnet 5.5 for standard implementation, and Sonnet 5.5 with high reasoning for DST/time-zone, backup, security, and architecture work (governance rule in [backlog.md](backlog.md#governance-rules)).
 12. **Gates that depend on physical devices, stakeholder usability, licensing, signing, or stores are _NOT PASSED — evidence-dependent_** until an evidence artifact exists. Nothing in this repository currently constitutes such evidence.
 
@@ -64,7 +65,7 @@ People who want a personal medication history need a trustworthy way to record w
 - A person who wants to record doses, explicit skips, notes, or observations and later inspect or export the raw history.
 - A person who wants reminders but understands that notifications can be denied, delayed, suppressed, or missed.
 
-**Not in the initial scope:** multi-person/caregiver records, shared accounts, clinician workflows, administrator roles (there are no accounts to administer), pharmacy or prescription management, or health-platform import/export (optional, separately authorized; PR-28). Caregiver, family, and provider personas are documented in [ux-journeys.md](ux-journeys.md) as deferred, not designed for.
+**Not in the initial scope:** multi-person/caregiver records, shared accounts, clinician workflows, administrator roles (there are no accounts to administer), pharmacy or prescription management, or health-platform import/export (not pursued; D-30, PR-28). Caregiver, family, and provider personas are documented in [ux-journeys.md](ux-journeys.md) as deferred, not designed for.
 
 ### Product principles
 
@@ -105,7 +106,7 @@ People who want a personal medication history need a trustworthy way to record w
 
 ### Post-MVP capabilities
 
-- Optional HealthKit / Android-Google health integration, only after B0-09 feasibility, separate authorization, and review (PR-28; DF-08).
+- Health-platform integration (HealthKit / Android-Google health): NOT PURSUED (owner decision D-30). Re-entry only under the D-30 criterion.
 - Any primary target not yet release-ready at first release is completed in Phase 4 as an independent device history; no platform is assumed to ship first.
 - Linux, only if separately requested (non-primary).
 - Additional chart filters and user-defined observation visualizations.
@@ -144,7 +145,7 @@ People who want a personal medication history need a trustworthy way to record w
 | PR-25 | **Catalog licensing gate (Must for catalog distribution).** No catalog data or derivative shall be bundled in a distributed build until GT-LIC passes (§6). Manual entry shall remain fully functional regardless. |
 | PR-26 | **Accent color (Could).** Settings shall let the user pick an accent from a bundled preset list. Accent shall apply to primary CTAs, focus, and selected controls only; destructive actions stay visually distinct; every preset shall meet WCAG 2.2 AA contrast in light and dark; state is never conveyed by color alone. |
 | PR-27 | **Usability evidence (Must for release).** Release of a target requires stakeholder usability evidence that representative non-technical participants complete Today → identify due → Taken/Skip → Undo unaided (GT-UX, NOT PASSED — evidence-dependent). The protocol and success threshold are set in B1-10 and approved by the product owner before testing; no threshold is invented here. |
-| PR-28 | **Optional health integrations (Could, deferred).** HealthKit and Android/Google health integrations shall be optional, separately authorized, and feasibility-gated (B0-09); they shall never block the MVP, be the source of truth for a dose, or be required for any core flow. Imported data shall retain source/provenance and duplicate status and become a ledger event only after explicit user review; exports shall be explicit; a receiving platform's acceptance shall never be treated as proof that a dose was taken. Failure, revocation, or unavailability shall leave local logging and history fully usable. |
+| PR-28 | **Health-platform integrations (Could): WITHDRAWN, not pursued (owner decision D-30, 2026-11-19).** MedTracker is a standalone app; no HealthKit or Android/Google health adapter, permission flow, import, or export shall be built. The rule that survives: a receiving platform's acceptance shall never be treated as proof that a dose was taken, and no external source shall be the source of truth for a dose. Failure or unavailability of any external service shall never affect local logging and history. |
 
 Priority key used in the backlog: **Must** (release-blocking), **Should**, **Could**. Process requirements (review separation, model-cost tiers, CI cost) are governance rules in [backlog.md](backlog.md#governance-rules), not product requirements.
 
@@ -159,7 +160,7 @@ Use a responsive shell with four primary destinations:
 3. **Reports** — descriptive charts, metric definitions, date range, and zone selector.
 4. **Medications** — catalog/manual add, medication details, schedules, pause/resume/discontinue.
 
-Settings is a secondary destination reachable from the navigation/header: time display defaults, notification permissions and privacy, (only if PR-28 proceeds) health-integration permissions and status, export/backup/restore, data deletion, catalog/version details, and about/disclaimer. Use a bottom navigation bar on phones and keep add/log flows as modal sheets, with full-screen alternatives for accessibility. A compact side rail and desktop dialogs/panels are the deferred desktop layout (DT-03, D-29), not part of the first release.
+Settings is a secondary destination reachable from the navigation/header: time display defaults, notification permissions and privacy, export/backup/restore, data deletion, catalog/version details, and about/disclaimer. Use a bottom navigation bar on phones and keep add/log flows as modal sheets, with full-screen alternatives for accessibility. A compact side rail and desktop dialogs/panels are the deferred desktop layout (DT-03, D-29), not part of the first release.
 
 ### Journeys
 
@@ -379,9 +380,9 @@ Until GT-LIC passes: the pipeline (B2-01) is built and tested only on **syntheti
 
 See §9 for the normative table. The architecture implication: until an entry is approved, no HTTP client, updater, or remote-capable Tauri plugin is added to the application; CSP and Tauri capabilities grant no remote origin; an automated egress check runs in the test suite (B2-12). If an entry is later approved, its network code lives behind an explicit integration command with visible pending/denied/disconnected/retry states, is never on the Today render path, and cannot write a dose event directly.
 
-### Optional health integrations (PR-28; feasibility only)
+### Health-platform integrations (PR-28; NOT PURSUED, D-30)
 
-HealthKit (iOS) and Android Health Connect / Google health APIs, if ever adopted, are optional adapters behind their own port, never the primary database. They require separate user authorization, and a feasibility spike (B0-09) must first establish supported data types, medication-related read/write limits, permissions, OS/version requirements, whether the adapter is on-device (platform API) or needs the network, and whether Tauri needs a native bridge. Imported candidates carry source, timestamp, source record ID, and a user-reviewed duplicate decision before becoming a local event; exported records are only requests, and platform acceptance never proves a dose was taken. No adapter is in the MVP, in the Phase 1 slice, or on any critical path.
+MedTracker is a standalone app. HealthKit and Android Health Connect / Google health integrations are not pursued (D-30), so no adapter, port, permission flow, import, or export exists or is planned. The B0-09 simulator spike (2026-11-18; no device evidence) is recorded in [spikes/healthkit-ios/FINDINGS.md](../spikes/healthkit-ios/FINDINGS.md). Its findings still bind any future proposal: external records are never the source of truth for a dose, and a platform's acceptance never proves a dose was taken.
 
 ### Packaging and release
 
@@ -497,7 +498,7 @@ Rules:
 
 - The allowlist covers **app runtime** behavior. These are outside it by design and are not app network features: the maintainer's build-time catalog download (only after GT-LIC); the user obtaining the installer or an update through a store or direct download; and user-initiated hand-off of an export/backup file to the OS share sheet or file picker (the OS, not the app, performs any transfer).
 - CSP and Tauri capability/permission files grant no remote origin and no HTTP, updater, or remote-capable plugin. The exact CSP form for Tauri's internal IPC/asset origins (which are not network endpoints) is verified in B0-07/B1-01 rather than assumed here.
-- Web access is allowed only for reviewed features. Adding an entry requires: a decision-register entry; product-owner and security review; the minimum-scope origin; updated CSP/capabilities; an updated egress test (B2-12); and updated privacy disclosure. Account, analytics, telemetry, crash-upload, sync, ad, and clinical-API endpoints are **never** eligible (PR-22). A health-platform integration that uses only on-device OS APIs is not a network entry but still needs its own PR-28 review.
+- Web access is allowed only for reviewed features. Adding an entry requires: a decision-register entry; product-owner and security review; the minimum-scope origin; updated CSP/capabilities; an updated egress test (B2-12); and updated privacy disclosure. Account, analytics, telemetry, crash-upload, sync, ad, and clinical-API endpoints are **never** eligible (PR-22). Health-platform integrations are not pursued (D-30), so no PR-28 review path is open.
 - Evidence: an egress capture while exercising the full journey set (including Today → Taken/Skip → Undo, export, backup, restore) with a network blocker active shows zero DNS/HTTP attempts. NOT PASSED until captured per target (see [release-evidence.md](release-evidence.md)).
 
 ### Privacy, backup, deletion, and recovery summary
@@ -577,7 +578,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 ### Phase 0 — feasibility and risk reduction
 
 - **Objective:** resolve platform, catalog, timezone, privacy, network, and release risks for both first-release targets (iOS, Android) before polished UI or reminder promises; produce evidence, not code that ships.
-- **Deliverables:** iOS and Android build/install baseline and Android SDK/NDK plus simulator setup (B0-10); iOS and Android native notification prototype on physical devices; (Windows/macOS notification-feasibility spike deferred, D-29); native current-zone discovery spike; DST behavior tests; catalog provenance/redistribution decision; storage/backup/encryption decision; egress-check harness and CSP baseline; optional HealthKit / Android-Google health feasibility note (B0-09, separately authorized, non-blocking); Phase 0 evidence synthesis with a go/no-go per platform.
+- **Deliverables:** iOS and Android build/install baseline and Android SDK/NDK plus simulator setup (B0-10); iOS and Android native notification prototype on physical devices; (Windows/macOS notification-feasibility spike deferred, D-29); native current-zone discovery spike; DST behavior tests; catalog provenance/redistribution decision; storage/backup/encryption decision; egress-check harness and CSP baseline; HealthKit / Android-Google health feasibility note (B0-09; simulator-only spike done 2026-11-18; integrations not pursued, D-30); Phase 0 evidence synthesis with a go/no-go per platform.
 - **Requirements:** PR-02, PR-03, PR-07, PR-11, PR-13, PR-16, PR-17, PR-18, PR-22, PR-23, PR-24, PR-25, PR-28.
 - **Dependencies:** none. Throwaway spike code lives only under `spikes/` and is never imported by product code.
 - **Major tasks:** B0-00 … B0-10 (B0-06 deferred) in [backlog.md](backlog.md). Execute §8 spike; inspect current NLM release data and license with the source owner/specialist; test `jiff`/tzdb versioning and the local-zone bridge; evaluate per-app backup exclusion; verify Rust/Node/Tauri builds per target; choose the default DB encryption stance.
@@ -601,7 +602,7 @@ Gate status vocabulary: **NOT PASSED — evidence-dependent** means no artifact 
 ### Phase 2 — complete MVP
 
 - **Objective:** complete schedules, outcome reporting, export/backup, optional catalog, and permission-aware reminders on the shared codebase, with the core loop unchanged.
-- **Deliverables:** immutable schedule versions with edit/pause/resume/end and elapsed-interval mode; zone-aware outcome reports and charts with table alternatives; CSV/JSON export; encrypted backup/restore; settings/privacy surfaces (permissions, deletion, display zone, about/disclaimer); catalog pipeline on synthetic fixtures (real bundle only after GT-LIC); reminder adapter for each mobile platform that passed G0; accent-color presets; network-isolation test suite.
+- **Deliverables:** immutable schedule versions with edit/pause/resume/end and elapsed-interval mode; zone-aware outcome reports and charts with table alternatives; CSV/JSON export; encrypted backup/restore; settings/privacy surfaces (permissions, deletion, display zone, about/disclaimer); catalog pipeline on synthetic fixtures, and search-as-you-type from a locally bundled catalog as the next planned medication-entry speed-up (D-30; real bundle only after GT-LIC; manual entry always available); reminder adapter for each mobile platform that passed G0; accent-color presets; network-isolation test suite.
 - **Requirements:** PR-01–PR-15, PR-17, PR-19–PR-23, PR-25, PR-26.
 - **Dependencies:** Phase 1 ledger and Today; G0 for reminder adapters; GT-LIC for real catalog data only.
 - **Major tasks:** B2-01 … B2-12 in [backlog.md](backlog.md).
@@ -645,7 +646,7 @@ The nine "Phase 1–9" headings of the original `product-owner-prompt.md` are no
 | WS-3 Architecture and platform shell | Stack, project setup, CI | B0-01, B0-07 | B1-01 | B2-12 | B3-08 | B4-01 |
 | WS-4 Data and domain core | Local database, domain model, time rules | B0-04, B0-05 | B1-02, B1-03, B1-04, B1-05 | B2-03, B2-04, B2-11 | B3-07 | B4-03 |
 | WS-5 Core experience | Today, Taken/Skip/Undo, History | — | B1-06, B1-08 | B2-05 | — | — |
-| WS-6 Reminders and optional integrations | Notifications; optional health platforms | B0-02, B0-06, B0-09 | — | B2-06 | — | B4-02, B4-07 |
+| WS-6 Reminders | Notifications (health platforms not pursued, D-30) | B0-02, B0-06, B0-09 (closed) | — | B2-06 | — | B4-02; B4-07 closed (D-30) |
 | WS-7 Data portability and catalog | Export, backup/restore, catalog | B0-03 | — | B2-01, B2-02, B2-07, B2-09 | — | — |
 | WS-8 Quality, accessibility, security | Testing, accessibility, security, privacy | B0-00 | B1-09 | B2-12 | B3-01, B3-03, B3-04 | — |
 | WS-9 Release and compliance | Signing, stores, legal, release | — | — | — | B3-05, B3-06, B3-09, B3-10 | B4-05, B4-06 |
@@ -660,12 +661,12 @@ The detailed backlog (owner/model tier, file ownership, acceptance criteria, tes
 
 | Phase | Tickets |
 |---|---|
-| 0 | B0-00 doc-check tooling · B0-01 mobile build baseline (iOS, Android) · B0-02 iOS/Android notification spike · B0-03 catalog license decision · B0-04 time engine and zone probe · B0-05 privacy/backup/encryption decision · B0-06 Windows/macOS notification spike (DEFERRED, D-29) · B0-07 egress harness and CSP baseline · B0-08 Phase 0 evidence synthesis (G0) · B0-09 optional health-platform feasibility (non-blocking) · B0-10 Android SDK/NDK and iOS/Android simulator build setup |
+| 0 | B0-00 doc-check tooling · B0-01 mobile build baseline (iOS, Android) · B0-02 iOS/Android notification spike · B0-03 catalog license decision · B0-04 time engine and zone probe · B0-05 privacy/backup/encryption decision · B0-06 Windows/macOS notification spike (DEFERRED, D-29) · B0-07 egress harness and CSP baseline · B0-08 Phase 0 evidence synthesis (G0) · B0-09 health-platform feasibility (closed; not pursued, D-30) · B0-10 Android SDK/NDK and iOS/Android simulator build setup |
 | 1 | B1-01 shell/typed commands/CSP · B1-02 SQLite and migrations · B1-03 medication snapshots and manual entry · B1-04 schedule v1 and occurrence engine · B1-05 ledger, linking, undo, corrections · B1-06 **Today screen** · B1-07 design foundation · B1-08 History timeline · B1-09 core-loop end-to-end and accessibility harness · B1-10 usability protocol and UX heuristic review |
 | 2 | B2-01 catalog pipeline (synthetic) · B2-02 catalog bundle and search UI (GT-LIC) · B2-03 schedule versioning, elapsed interval, reconciliation · B2-04 outcome linkage and report queries · B2-05 Reports UI and charts · B2-06 mobile reminder adapter (G0) · B2-07 CSV/JSON export · B2-08 Settings and privacy surfaces · B2-09 encrypted backup/restore · B2-10 accent presets · B2-11 notes and observations · B2-12 network-isolation suite |
 | 3 | B3-01 accessibility audit per target · B3-02 stakeholder usability study (GT-UX) · B3-03 performance/size baselines · B3-04 security/privacy review · B3-05 mobile signing proof (GT-SIGN; desktop signing/notarization deferred) · B3-06 store readiness (GT-STORE) · B3-07 recovery/upgrade/deletion tests · B3-08 release pipeline · B3-09 legal/intended-use review (GT-LEGAL) · B3-10 release checklist and evidence compilation · B3-11 mobile system file picker / share sheet for export and backup (launch blocker) |
 | Deferred (D-29) | DT-01 Windows build baseline · DT-02 macOS desktop build baseline · DT-03 desktop layouts and keyboard-first UX · DT-04 desktop distribution · DT-05 desktop signing/notarization · DT-06 desktop notification spikes (B0-06, B4-02) · DT-07 desktop accessibility and package smoke tests |
-| 4 | B4-01 close remaining target gaps · B4-02 desktop reminders (DEFERRED, D-29) · B4-03 additional schedule patterns (research-gated) · B4-04 localization · B4-05 optional updater decision · B4-06 Linux evaluation (only if requested; non-primary) · B4-07 optional health integration (conditional on B0-09 and separate authorization) |
+| 4 | B4-01 close remaining target gaps · B4-02 desktop reminders (DEFERRED, D-29) · B4-03 additional schedule patterns (research-gated) · B4-04 localization · B4-05 optional updater decision · B4-06 Linux evaluation (only if requested; non-primary) · B4-07 health integration (closed; not pursued, D-30) |
 
 Requirement coverage by ticket is listed in [backlog.md](backlog.md#requirement-traceability).
 
@@ -691,7 +692,7 @@ The full decision register (with IDs D-01…, reversibility, owner, and linked t
 - Whether device-current IANA zone ID can be read consistently on both mobile targets and whether the bundled tzdb/OS zone update lifecycle is acceptable (B0-04).
 - Whether SQLCipher builds cleanly across the mobile artifacts (desktop deferred) and whether its licensing/key recovery cost is justified (B0-05).
 - The exact CSP/capability configuration that yields an empty runtime allowlist (B0-07).
-- Whether HealthKit and Android/Google health can represent the intended medication record at all, and whether either needs a network path (B0-09; optional).
+- Closed by D-30 (health-platform integration not pursued): no open decision depends on HealthKit or Android/Google health.
 
 ### Decisions requiring product input
 
@@ -712,7 +713,7 @@ The full decision register (with IDs D-01…, reversibility, owner, and linked t
 2. Who are the stakeholder participants for the usability gate (GT-UX), and what counts as success for "non-technical user unaided"?
 3. What reminder timing tolerance is acceptable, and should reminders be excluded entirely on targets that cannot pass the feasibility gate?
 4. Is a U.S. prescription-focused catalog acceptable, or must the first release cover OTC/supplement/device entries that may require another source or manual records?
-5. Is optional health-platform integration (read, write, both, or neither) valuable enough to authorize B0-09?
+5. Closed by D-30: health-platform integration is not pursued (standalone app).
 6. Must the live database itself be encrypted against offline file theft, or is OS device protection plus user-encrypted backups an acceptable MVP boundary?
 
 ## Sources

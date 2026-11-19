@@ -27,7 +27,7 @@ A target is releasable (G3) only when **every** applicable row for that target i
 | 15 | Catalog included **only if** GT-LIC passed; otherwise confirmed absent | PR-25, GT-LIC | B0-03, B2-02 | Not passed | Not passed | DEFERRED (D-29) | DEFERRED (D-29) |
 | 16 | Security review findings dispositioned | PR-22, PR-23 | B3-04 | Not passed | Not passed | DEFERRED (D-29) | DEFERRED (D-29) |
 | 17 | Release checklist signed off | G3 | B3-10 | Not passed | Not passed | DEFERRED (D-29) | DEFERRED (D-29) |
-| 18 | Optional health integration (only if built): go/no-go, consent, duplicate and revocation behavior; confirmed absent otherwise. Never blocks a release by itself | PR-28, GT-HEALTH | B0-09, B4-07 | Not passed (optional) | Not passed (optional) | Not applicable | Not applicable |
+| 18 | Health-platform integration: **not pursued (D-30)**; no HealthKit or Health Connect code, permission, or import path is planned. Absence to be confirmed in the B3-04 security review | PR-28 (withdrawn), GT-HEALTH (not applicable) | B0-09 (closed), B4-07 (closed) | Not applicable (D-30) | Not applicable (D-30) | Not applicable | Not applicable |
 | 19 | System file picker / share sheet for export and backup works on the device; temp files cleaned; cancel leaves data untouched | PR-10, PR-12, GT-REC | B3-11 | Not passed (physical device) | Not passed (physical device) | DEFERRED (D-29) | DEFERRED (D-29) |
 
 ## 2. Platform-specific evidence

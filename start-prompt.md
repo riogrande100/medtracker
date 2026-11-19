@@ -36,8 +36,8 @@ This is a logging, scheduling, and reporting tool—not a medical-advice tool. I
 - Bundle the medication catalog with the application.
 - Update the catalog only through app releases.
 - Permit manual medication entry.
-- iOS and Android are the first-release targets; Windows and macOS are deferred (D-29). No target is first by assumption (not iOS-first, not Linux-first). Recommend staged validation and release order from per-platform evidence without treating their notification or health capabilities as equivalent.
-- HealthKit and Android Health Connect / Google health are optional, separately authorized feasibility work that must not block the MVP. Integrations must be provenance-aware and unable to silently duplicate local dose records, and an external platform's acceptance never proves a dose was taken.
+- iOS and Android are the first-release targets; Windows and macOS are deferred (D-29). No target is first by assumption (not iOS-first, not Linux-first). Recommend staged validation and release order from per-platform evidence without treating their notification capabilities as equivalent.
+- HealthKit and Android Health Connect / Google health integrations are NOT PURSUED (owner decision D-30, 2026-11-19; the app is standalone). An external platform's acceptance never proves a dose was taken. Faster medication entry comes from a bundled offline catalog (GT-LIC-gated) with manual entry always available.
 - Model policy for delegated work: Haiku 5.5 for mechanical and documentation tasks, Sonnet 5.5 for standard implementation, and Sonnet 5.5 with high reasoning for DST/time-zone, backup, security, and architecture.
 - Favor a small, maintainable architecture suitable for an initial solo-developer implementation.
 - Do not invent app-size, performance, or delivery-time guarantees.
@@ -311,7 +311,7 @@ Include:
 - Time-zone and daylight-saving tests.
 - Notification/device tests.
 - Accessibility tests.
-- Network resilience, allowlist, consent, timeout, and health-integration duplicate/revocation tests.
+- Network resilience, allowlist, consent, and timeout tests (health-integration tests not applicable, D-30).
 - Cross-platform UI smoke tests.
 - Release-build size and performance measurements.
 

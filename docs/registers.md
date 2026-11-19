@@ -18,7 +18,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | History with original / device / selected-zone views | PR-09 | Planned | Planned | Planned | Planned | 1 · B1-08 |
 | Reports and charts with table alternatives | PR-08, PR-09 | Planned | Planned | Planned | Planned | 2 · B2-04, B2-05 |
 | Notes and observations | PR-04 | Planned | Planned | Planned | Planned | 2 · B2-11 |
-| Bundled catalog search | PR-02, PR-25 | Gated (GT-LIC) | Gated (GT-LIC) | Gated (GT-LIC) | Gated (GT-LIC) | 2 · B2-01, B2-02 |
+| Bundled catalog search-as-you-type (preferred medication-entry speed-up, D-30); manual entry always available | PR-02, PR-25 | Gated (GT-LIC) | Gated (GT-LIC) | Gated (GT-LIC) | Gated (GT-LIC) | 2 · B2-01, B2-02 (next planned work) |
 | Scheduled local reminders | PR-13 | Spike (B0-02) → Gated (G0) | Spike (B0-02) → Gated (G0) | Not promised (spike B0-06) | Not promised (spike B0-06) | 2 · B2-06; 4 · B4-02 |
 | Notification permission status, generic preview | PR-13 | Planned | Planned | Planned (immediate only) | Planned (immediate only) | 2 · B2-06, B2-08 |
 | CSV/JSON export | PR-10 | Planned | Planned | Planned | Planned | 2 · B2-07 |
@@ -29,7 +29,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | Responsive layout: phone, tablet, desktop window | PR-15 | Planned | Planned | Planned | Planned | 1 · B1-07 |
 | Screen-reader and keyboard accessibility | PR-15 | VoiceOver · Planned | TalkBack · Planned | Narrator/other · Planned; keyboard | VoiceOver · Planned; keyboard | 1 · B1-09; 3 · B3-01 |
 | Core loop works with no connectivity; runtime network allowlist currently empty | PR-01, PR-23 | Planned | Planned | Planned | Planned | 0 · B0-07; 2 · B2-12 |
-| Optional health-platform integration (HealthKit / Android-Google health) | PR-28 | Spike (B0-09), optional | Spike (B0-09), optional | Not applicable | Not applicable | 0 · B0-09; 4 · B4-07; DF-08 |
+| Health-platform integration (HealthKit / Android-Google health): NOT PURSUED (D-30) | PR-28 | Not pursued (D-30) | Not pursued (D-30) | Not applicable | Not applicable | 0 · B0-09 (closed); 4 · B4-07 (closed); DF-08 (closed) |
 | Accounts, login, subscription, arbitrary sync, ads, analytics, telemetry | PR-22 | Excluded | Excluded | Excluded | Excluded | — |
 | Clinical claims (dosing advice, interactions, diagnosis) | PR-22 | Excluded | Excluded | Excluded | Excluded | — |
 
@@ -47,6 +47,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | EX-08 | Linux as a primary target, Linux-first development order, Linux-only CI gating | Latest request (D-26). |
 | EX-09 | Prescription creation/refill, image/barcode/pill identification, comprehensive drug information | Spec non-goals. |
 | EX-10 | Administrator role | No accounts exist to administer. |
+| EX-11 | Health-platform integration (HealthKit, Android Health Connect / Google health): import, export, or permission flows | Closed by owner decision D-30 (2026-11-19): standalone app, not pursued. Re-entry only under the D-30 criterion. |
 
 ## 3. Deferred features
 
@@ -59,7 +60,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | DF-05 | Observation charts / co-occurrence overlays | Risk of implied causation. | Descriptive overlay design with non-causality text approved. |
 | DF-06 | Windows/macOS scheduled reminders | Official plugin schedules mobile only; needs native integration. Now also subsumed by the desktop deferral (D-29, DF-14..DF-16). | Desktop re-entry criterion (D-29) plus B0-06 / REM-WIN / REM-MAC follow-up spike pass (DT-06). |
 | DF-07 | SQLCipher/database-level encryption | Build, key-management, and licensing cost. | B0-05 shows the threat model requires it. |
-| DF-08 | Optional health-platform integration (HealthKit, Android Health Connect / Google health) | Optional, separately authorized, non-blocking (PR-28). Needs consent, provenance, duplicate handling; platform acceptance never proves a dose. If it needs any endpoint it must pass the PR-23 allowlist process. | B0-09 go verdict plus separate user authorization (B4-07). |
+| DF-08 | Optional health-platform integration (HealthKit, Android Health Connect / Google health) | **CLOSED by owner decision D-30 (2026-11-19): not pursued.** Original reasons: consent, provenance, duplicate handling; platform acceptance never proves a dose; any endpoint would need the PR-23 allowlist process. | Closed. Re-entry only under the D-30 criterion (explicit owner request AND a need a bundled catalog cannot meet AND all HLT-* scenarios PASS on physical devices). |
 | DF-09 | OTC/supplement/device catalog beyond RxNorm | Source and licensing unknown. | Product input on catalog scope (D-25). |
 | DF-10 | Localization beyond the initial locale | Not needed for core loop. | B4-04. |
 | DF-11 | In-app updater | Would add an allowlist entry; stores/installers cover updates. | B4-05 decision. |
@@ -103,8 +104,9 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 | D-25 | U.S. prescription-focused catalog scope acceptable | Product input | Easy | Product owner | B0-03 |
 | D-26 | Linux is non-primary and gates nothing | Decided (user) | Easy | — | B4-06 |
 | D-27 | Web access only for reviewed features via an explicit runtime allowlist, currently empty; additions follow the PR-23 process; connectivity failure never blocks local logging | Decided (user) | Easy | B0-07, B2-12 | B0-07, B1-01, B2-12 |
-| D-28 | HealthKit and Android/Google health are optional, separately authorized feasibility work; they never block the MVP and an external platform's acceptance never proves a dose was taken | Decided (user) | Easy | B0-09 | B0-09, B4-07 |
+| D-28 | HealthKit and Android/Google health are optional, separately authorized feasibility work; they never block the MVP and an external platform's acceptance never proves a dose was taken | Decided (user); **superseded by D-30** (2026-11-19: not pursued) | Easy | B0-09 | B0-09 (closed), B4-07 (closed) |
 | D-29 | **First release is MOBILE ONLY (iOS + Android).** Windows and macOS desktop are DEFERRED, not removed: the code keeps building on the macOS dev host for fast iteration and tests, but there is no desktop release, no desktop signing/notarization, no Windows host, and no desktop usability/parity work in the release. This amends D-05 (four primary targets) and the original definition of done (four signed builds) for the first release. Rationale: cost and focus; Windows/macOS scheduled reminders were already NO-GO under the Tauri notification plugin. Re-entry: mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-WIN/REM-MAC passes AND a Windows host plus Mac desktop signing are available. The macOS host remains the iOS build/signing host. Dated 2026-11-19. | Decided (owner decision) | Easy (nothing removed; deferred tickets DT-xx and DF-14..DF-16 are retained) | Re-entry criterion above | B0-01, B0-06, B3-05, B3-10, B4-01, DT-01..DT-07 |
+| D-30 | **MedTracker is a STANDALONE app. Apple Health / HealthKit and Android Health Connect / Google health integrations are NOT PURSUED (closed, not merely deferred).** Basis: the B0-09 simulator spike ([spikes/healthkit-ios/FINDINGS.md](../spikes/healthkit-ios/FINDINGS.md), 2026-11-18; simulator only, no physical-device evidence): (1) import would only copy medication names; (2) denied, ungranted and empty are indistinguishable; (3) third-party apps cannot write dose events; (4) it would need physical-device proof, a privacy policy and a security review; (5) a bundled medication list gives the same convenience offline. Re-entry criterion (all required): an explicit owner request AND a user need that a bundled catalog cannot meet AND all HLT-* scenarios passing on physical devices. External platform acceptance never proves a dose was taken. Preferred direction: a bundled offline medication catalog to speed up medication entry (search-as-you-type; still gated by GT-LIC, D-25 US scope; manual entry always available; ticket B2-02). Supersedes D-28. Dated 2026-11-19. | Decided (owner decision) | Easy (nothing shipped; no health code in the product) | Re-entry criterion above | B0-09 (closed), B4-07 (closed, not pursued), DF-08 (closed), GT-HEALTH (not applicable), B2-02 |
 
 ### Open questions needing the product owner
 
@@ -113,7 +115,7 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 3. What reminder timing tolerance is acceptable, and should reminders be omitted on targets that fail their spike?
 4. Is a U.S. prescription-focused catalog acceptable for the first release (D-25)?
 5. Must the live database be encrypted against offline file theft, or are OS protection plus encrypted user backups acceptable (D-15)?
-6. Should optional health-platform integration (B0-09) be authorized at all, and for which platforms and record directions?
+6. Closed by D-30: health-platform integration is not pursued (standalone app).
 
 ## 5. Gate register
 
@@ -138,4 +140,4 @@ All gates are **NOT PASSED — evidence-dependent** at baseline, except GT-DEV-W
 | GT-SIGN | Signed installable artifact per in-scope (mobile) target; costs/renewal/ownership documented | Signed artifact install record | H | B3-05 |
 | GT-STORE | Distribution channel and disclosures accepted per target | Submission/beta records | H | B3-06 |
 | GT-LEGAL | Intended-use, privacy, disclosure, attribution review | Written specialist review | H specialist | B3-09 |
-| GT-HEALTH | Optional health-platform go/no-go (non-blocking; blocks only a health feature, never the MVP) | Written go/no-go per platform; device runs marked not run until performed | H + T3 | B0-09, B4-07 |
+| GT-HEALTH | **NOT APPLICABLE by owner decision D-30 (2026-11-19).** Health-platform integration is not pursued, so this gate is neither required nor passed nor waived for any release. | None; any future health gate would come from a new decision under the D-30 re-entry criterion | — | B0-09 (closed), B4-07 (closed) |

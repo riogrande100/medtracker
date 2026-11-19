@@ -12,7 +12,7 @@ Your primary responsibility is to ensure that all work aligns with user needs, m
 - **First-release targets: iOS and Android only (owner decision D-29, 2026-11-19).** Windows and macOS desktop are DEFERRED, not removed (DF-14, DF-15, DF-16; tickets DT-01..DT-07): no desktop release, no desktop signing/notarization, no Windows host, no desktop usability/parity work in the release. The code keeps building on the macOS dev host for iteration and tests, and that Mac stays the iOS build/signing host. This amends the original four-signed-builds definition of done for the first release. Re-entry: mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-WIN/REM-MAC passes AND a Windows host plus Mac desktop signing are available. Neither mobile target is first by assumption; not Linux-first. Linux is non-primary and gates nothing. Release order is decided from per-platform evidence.
 - A local SQLite ledger is the source of truth. There are no accounts, authentication, registration, subscriptions, advertising, analytics, telemetry, arbitrary cloud sync, dose recommendations, interaction checking, or clinical claims.
 - Web access is allowed only for reviewed features through an explicit runtime network allowlist, which is currently empty. A connectivity or integration failure must never block local logging, correction, or history.
-- HealthKit and Android/Google health integrations are optional, separately authorized feasibility work. They must not block the MVP, and an external platform's acceptance of a record never proves a dose was taken.
+- MedTracker is a standalone app. HealthKit and Android/Google health integrations are NOT PURSUED (owner decision D-30, 2026-11-19). An external platform's acceptance of a record never proves a dose was taken. Medication entry is sped up with a bundled offline catalog (GT-LIC-gated, D-25) with manual entry always available.
 - The UI is Geist-inspired with locally bundled fonts and assets.
 - The primary experience is a non-technical user opening **Today**, seeing what is due, tapping **Taken** or **Skip**, getting a clear confirmation, and being able to **Undo**.
 - Delivery phases are Phase 0 (feasibility and UX validation), Phase 1 (vertical slice), Phase 2 (complete MVP), Phase 3 (native integrations and first release), and Phase 4 (cross-platform parity). There are no other phases.
@@ -33,7 +33,7 @@ The nine areas of work below are workstreams (WS-1 to WS-9). They are not delive
 | WS-3 Architecture and platform shell | Stack, project setup, CI cost policy | Four-target builds, egress harness | Shell and typed commands | Network-isolation suite | Release pipeline | Remaining target gaps |
 | WS-4 Data and domain core | SQLite, time model, schedules, ledger | Time engine, privacy decision | Schema, medications, schedule v1, ledger | Schedule versioning, reports queries, observations | Recovery tests | Extra schedule patterns |
 | WS-5 Core experience | Today, Taken/Skip/Undo, History | none | Today and History | Reports | none | none |
-| WS-6 Reminders and optional integrations | Notifications; optional health platforms | Notification spikes, health feasibility | none | Mobile reminder adapter | none | Desktop reminders, health integration (conditional) |
+| WS-6 Reminders | Notifications | Notification spikes | none | Mobile reminder adapter | none | Desktop reminders (deferred, D-29); health integrations not pursued (D-30) |
 | WS-7 Data portability and catalog | Export, backup/restore, catalog | Catalog licensing decision | none | Export, backup, catalog | none | none |
 | WS-8 Quality, accessibility, security | Testing, WCAG 2.2 AA, security, privacy | Doc-check tooling | End-to-end and accessibility harness | Network-isolation suite | Audits, security review, baselines | none |
 | WS-9 Release and compliance | Signing, notarization, stores, legal, checklist | none | none | none | Signing, stores, legal, checklist | Updater decision, optional Linux |
@@ -46,7 +46,7 @@ Create and maintain the personas, application flow (Mermaid), and UX journeys in
 
 Personas: the primary non-technical patient is in scope. Caregiver and family personas are deferred (DF-01), healthcare providers are out of scope (DF-02), and there are no administrators because there are no accounts. For each persona record goals, pain points, primary workflows, and accessibility needs.
 
-The application flow must cover onboarding without an account, Today, medication setup, scheduling, reminder notifications (which never record a dose), history, reports, settings, backup and restore, and, only if separately authorized, optional health connection, permission, and revocation. For every screen define purpose, user goals, actions, entry and exit points, and error, empty, and loading states. Optimize for task-completion efficiency, accessibility, mobile-first thinking, desktop usability, and reduced cognitive load. Account setup, reports, and detailed medication editing must never obstruct the Today path.
+The application flow must cover onboarding without an account, Today, medication setup, scheduling, reminder notifications (which never record a dose), history, reports, settings, backup and restore. Health-platform connection is not pursued (D-30). For every screen define purpose, user goals, actions, entry and exit points, and error, empty, and loading states. Optimize for task-completion efficiency, accessibility, mobile-first thinking, desktop usability, and reduced cognitive load. Account setup, reports, and detailed medication editing must never obstruct the Today path.
 
 Design review runs in parallel with engineering and does not block Phase 1. Stakeholder usability evidence is a Phase 3 release gate (GT-UX), measured against a threshold the product owner approves before testing.
 
@@ -75,9 +75,9 @@ Own the SQLite schema and migrations, immutable medication and schedule versions
 
 Today (Due now, Upcoming, Recorded, Earlier not logged), one-step Taken and Skip, Undo (void with audit, distinct from privacy delete), Log as needed, and History. Never use the words "missed" or "overdue".
 
-### WS-6 Reminders and optional integrations
+### WS-6 Reminders
 
-Reminders are best-effort native requests and never a dose record. Spike iOS and Android on physical devices; Windows and macOS spikes are deferred (D-29, DT-06); do not promise reminder reliability on any target before its spike passes. Optional health integrations (B0-09, B4-07) need separate user authorization first.
+Reminders are best-effort native requests and never a dose record. Spike iOS and Android on physical devices; Windows and macOS spikes are deferred (D-29, DT-06); do not promise reminder reliability on any target before its spike passes. Health-platform integrations are not pursued (D-30; B0-09 spike closed, B4-07 closed).
 
 ### WS-7 Data portability and catalog
 
@@ -118,7 +118,7 @@ The project is successful when:
 - Geist-inspired designs and the accessible component set exist.
 - iOS and Android each have a documented, validated release path with a complete evidence matrix. (Amended by D-29: the original four-target definition, which included signed Windows and macOS builds, is deferred for the first release.)
 - Routine medication logging is demonstrably understandable to the intended primary user (GT-UX passed with evidence).
-- Optional health integration is implemented only if its feasibility, consent, and privacy gates pass.
+- No health-platform integration is built (not pursued, D-30).
 - CI/CD costs are minimized.
 - Platform-specific capabilities are released independently after their own gates.
 - Accessibility requirements are met with evidence.

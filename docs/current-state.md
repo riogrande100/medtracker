@@ -36,9 +36,9 @@ Other gaps against the backlog observed in an earlier read and not yet audited: 
 |---|---|
 | `chrono-tz` 0.10.4 bundles tzdb 2025b, stale against IANA 2026f (released 2026-10-27); `jiff` 1.x with bundled tzdb is recommended (D-04a). | Library finding from the host spike; **not a device claim**. Spec updated. |
 | Tauri notification plugin: `Schedule` is mobile-only; desktop notifications are immediate; Android falls back to inexact alarms when exact-alarm access is missing; iOS `Schedule.at` is an elapsed-time trigger. | Read from documentation and source; **no device run**. |
-| HealthKit and Android/Google health: medication-dose support exists only on recent OS versions or experimental APIs, or is unestablished; the Google Health API is a cloud OAuth API. | Documentation only; feasibility remains B0-09, optional and non-blocking (PR-28). |
+| HealthKit and Android/Google health: medication-dose support exists only on recent OS versions or experimental APIs, or is unestablished; the Google Health API is a cloud OAuth API. | Documentation, plus a simulator-only spike (B0-09, 2026-11-18). Health-platform integration is **NOT PURSUED** (owner decision D-30). |
 
-Spike recommendations are provisional and carry no device evidence: iOS/Android reminders DEFER, Windows/macOS plugin scheduling NO-GO (desktop deferred, D-29), `device_local` DEFER, health import NO-GO for MVP.
+Spike recommendations are provisional and carry no device evidence: iOS/Android reminders DEFER, Windows/macOS plugin scheduling NO-GO (desktop deferred, D-29), `device_local` DEFER, health import NO-GO for MVP, and health-platform integration is closed as not pursued (D-30). **Next planned work (D-30):** B2-02 search-as-you-type from a locally bundled catalog (GT-LIC-gated; manual entry always available).
 
 ## 4. Host toolchain (macOS arm64 planning host, observed earlier)
 
@@ -65,13 +65,13 @@ Consequence: macOS and an iOS simulator are plausible on this host; it remains t
 | 6 | Spec Phase 1 lacked schedule and Today | Minimal schedule + occurrences in Phase 1 (B1-04); versioning in Phase 2 (D-11). |
 | 7 | Delete-only vs accidental-action undo | Undo = `voided` with audit; delete is the separate privacy action (PR-21, PR-06, D-10). |
 | 8 | Fully offline vs network-enabled sibling revision | Merged: allowlist model; web access only for reviewed features; allowlist currently empty (PR-23, D-27); connectivity failure never blocks local logging (PR-01). |
-| 9 | Health integration as `PR-19` in the sibling revision, colliding with the Today core loop `PR-19` | Today keeps PR-19; health integration is **PR-28**, optional and feasibility-gated (B0-09, DF-08, D-28). |
+| 9 | Health integration as `PR-19` in the sibling revision, colliding with the Today core loop `PR-19` | Today keeps PR-19; health integration is **PR-28**, withdrawn: not pursued (D-30; formerly B0-09, DF-08, D-28). |
 | 10 | `chrono-tz` as the time engine | `jiff` 1.x with bundled tzdb (D-04a). |
 | 11 | "Do not generate application code yet" (start prompt) | Applied to the original planning task only; implementation follows [backlog.md](backlog.md). |
 
 ## 6. Gate status at baseline
 
-All of the following are **NOT PASSED — evidence-dependent** (no artifact exists): GT-LIC, GT-UX, GT-SIGN, GT-STORE, GT-LEGAL, GT-A11Y, GT-REC, GT-NET, GT-HEALTH, GT-DEV-IOS, GT-DEV-AND, and phase gates G0–G4. GT-DEV-WIN and GT-DEV-MAC are **DEFERRED by owner decision D-29** (not passed, not waived). No device, store, or signing evidence exists. Host-side unit tests do not satisfy any of these. Definitions: [registers.md](registers.md). Per-platform cells: [release-evidence.md](release-evidence.md).
+All of the following are **NOT PASSED — evidence-dependent** (no artifact exists): GT-LIC, GT-UX, GT-SIGN, GT-STORE, GT-LEGAL, GT-A11Y, GT-REC, GT-NET, GT-DEV-IOS, GT-DEV-AND, and phase gates G0–G4. GT-DEV-WIN and GT-DEV-MAC are **DEFERRED by owner decision D-29** (not passed, not waived). GT-HEALTH is **NOT APPLICABLE by owner decision D-30** (health-platform integration not pursued). No device, store, or signing evidence exists. Host-side unit tests do not satisfy any of these. Definitions: [registers.md](registers.md). Per-platform cells: [release-evidence.md](release-evidence.md).
 
 ## 7. Known limitations of this baseline
 
