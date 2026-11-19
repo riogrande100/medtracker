@@ -224,7 +224,7 @@ Phone (portrait), low fidelity:
 └──────────────────────────────┘
 ```
 
-Desktop (Windows/macOS window), low fidelity: a compact side rail with Today / History / Reports / Medications and Settings; Today content in a centered column with the same cards; Taken/Skip/Undo are keyboard-reachable buttons in logical tab order with visible focus; tablet widths use the same single column up to a comfortable reading width, then a two-column Due now / Recorded layout.
+**Desktop layout — DEFERRED (D-29, DT-03); not part of the first release (mobile only: iOS + Android).** Retained as intent for re-entry. Desktop (Windows/macOS window), low fidelity: a compact side rail with Today / History / Reports / Medications and Settings; Today content in a centered column with the same cards; Taken/Skip/Undo are keyboard-reachable buttons in logical tab order with visible focus; tablet widths use the same single column up to a comfortable reading width, then a two-column Due now / Recorded layout.
 
 High-fidelity mockups and the component library are produced alongside B1-07 and reviewed in parallel; they do not gate engineering. Visual language: Geist-inspired principles (readability, whitespace, focus-driven layouts, low visual noise, fast feedback) implemented with locally bundled fonts and assets, never fetched at runtime (PR-17, D-14). Accent color (PR-26) changes only the accent role; destructive actions stay visually distinct; state is never color alone.
 
@@ -237,7 +237,7 @@ High-fidelity mockups and the component library are produced alongside B1-07 and
 
 ## 11. Accessibility acceptance (WCAG 2.2 AA target; evidence per target in B3-01)
 
-- Whole core loop operable by keyboard alone (desktop) and by screen reader (VoiceOver, TalkBack, a Windows screen reader).
+- Whole core loop operable by screen reader (VoiceOver on iOS, TalkBack on Android) and with an external keyboard where the OS supports it. Desktop keyboard-only and Windows screen reader acceptance is deferred (D-29, DT-07).
 - Visible focus; logical focus order; focus moves to the updated card after an action and to the Undo control when it appears.
 - Dynamic type/text scaling and zoom without loss of Taken/Skip/Undo.
 - Contrast for every color-role pair, including each accent preset, light and dark.

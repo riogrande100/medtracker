@@ -9,6 +9,7 @@ mod fsutil;
 mod notifications;
 mod reports;
 mod storage;
+mod transfer;
 
 #[cfg(test)]
 mod tests;
@@ -20,9 +21,14 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Used only from Rust (src/transfer.rs); no permission for either is granted to the web view.
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            // A picked backup copy never outlives the launch that made it.
+            transfer::clear_staging(&transfer::staging_dir_in(&dir));
             // A failed open (newer/corrupt/failed upgrade) must not abort the app or touch the file:
             // the UI shows a recoverable screen from `startup_status`.
             app.manage(commands::Db::open(&dir.join("user-data.sqlite")));
@@ -55,6 +61,9 @@ pub fn run() {
             backup::commands::restore_backup,
             reports::commands::report_range,
             reports::commands::export_ledger,
+            transfer::save_copy,
+            transfer::pick_backup_file,
+            transfer::discard_staged_backup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MedTracker");

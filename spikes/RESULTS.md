@@ -1,6 +1,6 @@
 # Phase 0 results (research date 2026-11-18)
 
-**Nothing below is device-verified.** No physical iOS, Android, Windows or macOS run exists. Every device scenario is PENDING (`cargo run -q --bin evidence_check`: 58 scenarios, 0 pass, 0 fail). "Docs/source" means read from documentation or plugin source; "host test" means `cargo test` on a developer Mac against the probe model, not a device. Sources: `sources.md`.
+**Scope note (2026-11-19, owner decision D-29): the first release is mobile only (iOS + Android); the Windows and macOS rows/columns below are DEFERRED (not removed) and are retained as evidence for desktop re-entry (REM-WIN/REM-MAC spikes).** **Nothing below is device-verified.** No physical iOS, Android, Windows or macOS run exists. Every device scenario is PENDING (`cargo run -q --bin evidence_check`: 58 scenarios, 0 pass, 0 fail). "Docs/source" means read from documentation or plugin source; "host test" means `cargo test` on a developer Mac against the probe model, not a device. Sources: `sources.md`.
 
 ## Host-side results (verified on a Mac, not on devices)
 - `cargo test`: DST gap, DST fold, Lord Howe 30-minute DST, Sydney (southern hemisphere), Apia skipped civil date, zone change westward/eastward in the `device_local` planner, reminder-degradation model, health-import model, evidence-judging rules, templates. These test the probe policy code (proposed in docs/product-spec.md), not OS behavior.
@@ -12,7 +12,7 @@
 ## Capability matrix (status of evidence)
 Legend: DOC = documented/source-read only; HOST = host test only; PENDING = no evidence.
 
-| Area | iOS | Android | Windows | macOS |
+| Area | iOS | Android | Windows (DEFERRED, D-29) | macOS (DEFERRED, D-29) |
 |---|---|---|---|---|
 | Scheduled reminders | DOC: plugin maps `at` to elapsed-time trigger, `interval` to calendar trigger; PENDING device | DOC: AlarmManager, inexact fallback without exact-alarm access; boot reschedule; PENDING device | DOC: plugin is immediate-only; native scheduled toast has 5-min window; PENDING | DOC: plugin immediate-only; native scheduling not researched; PENDING |
 | Time zone (device zone + change events) | HOST model only; PENDING device | HOST model only; PENDING device (2 phones) | HOST model only; Windows-to-IANA mapping PENDING | HOST: zone resolved on this Mac, not recorded as acceptance; PENDING |
@@ -23,8 +23,8 @@ Legend: DOC = documented/source-read only; HOST = host test only; PENDING = no e
 |---|---|---|
 | iOS reminders | **DEFER** to device spike | All `required_for_go` REM-IOS-* PASS on a physical iPhone |
 | Android reminders | **DEFER** | REM-AND-* required scenarios PASS on 2 phones from different manufacturers, plus a decision on exact-alarm handling (approximate or omit; `USE_EXACT_ALARM` eligibility for medication reminders is not established) |
-| Windows reminders via Tauri plugin | **NO-GO** (docs: immediate-only) | Native scheduling spike passes REM-WIN-02..05 |
-| macOS reminders via Tauri plugin | **NO-GO** (docs: immediate-only) | Native scheduling spike passes REM-MAC-02..06 |
+| Windows reminders via Tauri plugin (DEFERRED, D-29) | **NO-GO** (docs: immediate-only) | Native scheduling spike passes REM-WIN-02..05 |
+| macOS reminders via Tauri plugin (DEFERRED, D-29) | **NO-GO** (docs: immediate-only) | Native scheduling spike passes REM-MAC-02..06 |
 | `device_local` schedule mode | **DEFER** | TZD-* and TZE-* PASS per platform; otherwise ship `home_zone` and `elapsed_interval` only |
 | Time-zone engine | **Do not pin chrono-tz 0.10.4 as-is** (2025b, stale; confirmed by host tests). Prefer a current tzdb (jiff 2026f) or updated chrono-tz | Re-test with chosen engine; record tzdb version per occurrence; `tz_report --strict` exits 0 |
 | HealthKit / Health Connect import | **NO-GO for MVP** (no automatic import per spec) | A product requirement plus HLT-* PASS; imports only as unverified external claims, never creating or changing a dose |

@@ -47,7 +47,23 @@ describe("Reports", () => {
     await user.click(screen.getByRole("checkbox", { name: "Include notes" }));
     await user.click(screen.getByRole("button", { name: "Export JSON" }));
     expect(exportLedger).toHaveBeenLastCalledWith(expect.objectContaining({ format: "json", include_notes: true }));
-    expect(await screen.findByRole("status")).toHaveTextContent("/Downloads/medtracker-export.json");
+    expect(await screen.findByRole("status")).toHaveTextContent("File created with 6 entries: medtracker-export.json");
+  });
+
+  it("offers Save a copy for the created file, says what happened, and keeps the private location visible", async () => {
+    const user = userEvent.setup();
+    const saveCopy = vi.fn().mockResolvedValueOnce({ saved: true, bytes: 10 }).mockRejectedValueOnce({ kind: "storage", message: "Could not write to the place you chose (denied). Your file is still saved inside MedTracker." });
+    render(<ReportsView api={{ ...fakeApi(), saveCopy }} version={0} />);
+    await screen.findByRole("table", { name: "By day" });
+    expect(screen.queryByRole("button", { name: "Save a copy" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(await screen.findByText("/data/MedTracker/exports/medtracker-export.csv")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save a copy" }));
+    expect(saveCopy).toHaveBeenCalledWith("/data/MedTracker/exports/medtracker-export.csv");
+    expect(await screen.findByText("A copy was saved where you chose.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save a copy" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("still saved inside MedTracker");
+    expect(screen.getByText("/data/MedTracker/exports/medtracker-export.csv")).toBeInTheDocument();
   });
 
   it("shows an error from the report", async () => {

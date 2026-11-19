@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type Api, type ExportResult, type Report, type ReportCounts, errorMessage } from "../lib/api";
 import { medLabel } from "../lib/format";
+import { SaveCopy } from "./SaveCopy";
 import { Button, Field, inputClass } from "./ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -170,7 +171,8 @@ export function ReportsView({ api, version }: { api: Api; version: number }) {
       <fieldset className="space-y-3 rounded-lg border border-neutral-300 bg-white p-4">
         <legend className="px-1 text-lg font-semibold">Export entries</legend>
         <p className="text-sm text-neutral-700">
-          Saves a plain, unencrypted file of the entries in the range above to your Downloads folder. Anyone who can open the file can read it.
+          Creates a plain, unencrypted file of the entries in the range above. It is kept inside MedTracker first; then use Save a copy
+          to put it in Files, a cloud drive or another place you choose. Anyone who can open the file can read it.
         </p>
         <label className="flex min-h-12 items-center gap-3">
           <input type="checkbox" className="h-6 w-6" checked={notes} onChange={(e) => setNotes(e.target.checked)} />
@@ -185,9 +187,12 @@ export function ReportsView({ api, version }: { api: Api; version: number }) {
           <Button className="flex-1" onClick={() => save("json")}>Export JSON</Button>
         </div>
         {exported && (
-          <p role="status">
-            Saved {exported.rows} {exported.rows === 1 ? "entry" : "entries"} to {exported.path}
-          </p>
+          <>
+            <p role="status">
+              File created with {exported.rows} {exported.rows === 1 ? "entry" : "entries"}: {exported.file_name}
+            </p>
+            <SaveCopy key={exported.path} api={api} path={exported.path} />
+          </>
         )}
       </fieldset>
     </section>

@@ -82,14 +82,17 @@ export function fakeApi(opts: { startupError?: AppError; upgradeCopy?: boolean; 
     endSchedule: async () => {},
     previewSchedule: async () => previewRows(),
     nextDue: async () => opts.next ?? null,
-    backupFolder: async () => ({ folder: "/Documents/MedTracker Backups", files: opts.backups ?? [] }),
+    backupFolder: async () => ({ folder: "/data/MedTracker/backups", files: opts.backups ?? [] }),
     createBackup: async () => ({
-      path: "/Documents/MedTracker Backups/MedTracker-backup-2026-03-10-0930.medbackup", file_name: "MedTracker-backup-2026-03-10-0930.medbackup",
+      path: "/data/MedTracker/backups/MedTracker-backup-2026-03-10-0930.medbackup", file_name: "MedTracker-backup-2026-03-10-0930.medbackup",
       created_at_utc_us: 1_773_133_800_000_000, medications: 1, doses: 2, schedules: 1, size_bytes: 4096,
     }),
     restoreBackup: async () => ({ backup_created_at_utc_us: 1_773_133_800_000_000, medications: 1, doses: 2, schedules: 1, upgraded_from: null, safety_copy_kept: true }),
     reportRange: async (from, to) => opts.report ?? sampleReport(from, to),
-    exportLedger: async (input) => ({ path: `/Downloads/medtracker-export.${input.format}`, file_name: `medtracker-export.${input.format}`, rows: 6 }),
+    saveCopy: async () => ({ saved: true, bytes: 4096 }),
+    pickBackupFile: async () => ({ path: "/data/MedTracker/import-staging/picked.medbackup", name: "my-backup.medbackup", size_bytes: 4096 }),
+    discardStagedBackup: async () => {},
+    exportLedger: async (input) => ({ path: `/data/MedTracker/exports/medtracker-export.${input.format}`, file_name: `medtracker-export.${input.format}`, rows: 6 }),
   };
 }
 

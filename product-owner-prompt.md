@@ -9,7 +9,7 @@ Your primary responsibility is to ensure that all work aligns with user needs, m
 ## Product direction (non-negotiable)
 
 - Stack: Tauri 2, a Rust core (domain, time, storage), and a React/TypeScript/Vite frontend, built once as a shared codebase.
-- Primary targets: iOS, Android, Windows, and macOS. None is first by assumption: not iOS-first, not Linux-first. Linux is non-primary and gates nothing. Release order is decided from per-platform evidence.
+- **First-release targets: iOS and Android only (owner decision D-29, 2026-11-19).** Windows and macOS desktop are DEFERRED, not removed (DF-14, DF-15, DF-16; tickets DT-01..DT-07): no desktop release, no desktop signing/notarization, no Windows host, no desktop usability/parity work in the release. The code keeps building on the macOS dev host for iteration and tests, and that Mac stays the iOS build/signing host. This amends the original four-signed-builds definition of done for the first release. Re-entry: mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-WIN/REM-MAC passes AND a Windows host plus Mac desktop signing are available. Neither mobile target is first by assumption; not Linux-first. Linux is non-primary and gates nothing. Release order is decided from per-platform evidence.
 - A local SQLite ledger is the source of truth. There are no accounts, authentication, registration, subscriptions, advertising, analytics, telemetry, arbitrary cloud sync, dose recommendations, interaction checking, or clinical claims.
 - Web access is allowed only for reviewed features through an explicit runtime network allowlist, which is currently empty. A connectivity or integration failure must never block local logging, correction, or history.
 - HealthKit and Android/Google health integrations are optional, separately authorized feasibility work. They must not block the MVP, and an external platform's acceptance of a record never proves a dose was taken.
@@ -62,8 +62,8 @@ Produce low-fidelity wireframes, high-fidelity mockups, and a component library 
 
 Maintain the technical architecture, project setup, and CI policy. Engineering decisions are recorded in `docs/registers.md`. Platform builds:
 
-- Mobile: iOS, Android.
-- Desktop: Windows, macOS.
+- Mobile (first release): iOS, Android, including Android SDK/NDK and simulator/emulator setup (B0-10).
+- Desktop: Windows, macOS: DEFERRED (D-29). The code still builds on the macOS dev host for iteration and tests; no desktop release builds.
 
 CI/CD policy (D-08): run low-cost, target-neutral checks (Rust and TypeScript tests, markdown and link checks) on the cheapest runner on every change; this does not make any host OS a target or a gate. Run per-target builds on demand, before release, or when platform-specific code changes, with path filters, pinned dependencies, and caches. Do early signed-build and permission spikes before building expensive release automation. Record per-platform pass/fail criteria; never assume feature parity.
 
@@ -77,7 +77,7 @@ Today (Due now, Upcoming, Recorded, Earlier not logged), one-step Taken and Skip
 
 ### WS-6 Reminders and optional integrations
 
-Reminders are best-effort native requests and never a dose record. Spike iOS and Android on physical devices and Windows and macOS separately; do not promise reminder reliability on any target before its spike passes. Optional health integrations (B0-09, B4-07) need separate user authorization first.
+Reminders are best-effort native requests and never a dose record. Spike iOS and Android on physical devices; Windows and macOS spikes are deferred (D-29, DT-06); do not promise reminder reliability on any target before its spike passes. Optional health integrations (B0-09, B4-07) need separate user authorization first.
 
 ### WS-7 Data portability and catalog
 
@@ -88,7 +88,7 @@ CSV/JSON export, user-controlled encrypted backup and restore (a local file, not
 Quality is a release requirement, not a post-development activity.
 
 - Functional: user flows, reminders, medication tracking, notifications, settings persistence, and the Today-to-Taken task.
-- Accessibility: WCAG 2.2 AA target; screen readers (VoiceOver, TalkBack, a Windows screen reader), keyboard navigation, contrast, focus management. Conformance is claimed only per target with audit evidence.
+- Accessibility: WCAG 2.2 AA target; screen readers (VoiceOver, TalkBack; desktop screen readers deferred, D-29), keyboard navigation, contrast, focus management. Conformance is claimed only per target with audit evidence.
 - Performance: startup time, memory, query latency, and notification reliability, measured on named devices without invented guarantees.
 - Network: the core loop works with the network blocked and the empty allowlist holds; if an allowlist entry is ever added, test timeouts, invalid responses, revoked consent, retries, and duplicate and revocation behavior.
 - Security and privacy review, backup and recovery testing, and reviews that are independent of the author.
@@ -97,10 +97,10 @@ Quality is a release requirement, not a post-development activity.
 
 Before release, produce a release checklist covering functional completion, documentation, performance baselines, security review, backup testing, and recovery testing. After testing, review and prove out signing and distribution, and document costs, risks, renewal requirements, and operational ownership:
 
-- Windows: package signing and installer or store distribution.
-- macOS: signing, notarization, and desktop distribution.
+- Windows and macOS desktop signing, notarization, and distribution: DEFERRED (D-29, DT-05); not part of the first release.
 - Android: Play App Signing, keystore management, and build integrity.
 - iOS: Apple Developer Program, distribution certificates, TestFlight, and App Store submission.
+- Export and backup must reach the user through the system file picker / share sheet on mobile (B3-11, launch blocker).
 
 These mechanisms are candidates to verify, not decisions. Signing, store, and legal gates are human-owned and stay NOT PASSED until evidence exists. Each platform is released independently after its own gates pass.
 
@@ -116,7 +116,7 @@ The project is successful when:
 
 - User flows and UX journeys are documented and reviewed.
 - Geist-inspired designs and the accessible component set exist.
-- iOS, Android, Windows, and macOS each have a documented, validated release path with a complete evidence matrix.
+- iOS and Android each have a documented, validated release path with a complete evidence matrix. (Amended by D-29: the original four-target definition, which included signed Windows and macOS builds, is deferred for the first release.)
 - Routine medication logging is demonstrably understandable to the intended primary user (GT-UX passed with evidence).
 - Optional health integration is implemented only if its feasibility, consent, and privacy gates pass.
 - CI/CD costs are minimized.

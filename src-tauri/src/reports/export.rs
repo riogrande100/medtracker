@@ -1,12 +1,11 @@
 //! Plain CSV / JSON export of the dose-event ledger.
 //!
-//! Where files go: `commands::export_ledger` writes into the platform's Downloads folder
-//! (falling back to Documents), because a user-visible location needs no picker plugin and no
-//! extra capability, and the app stays offline-only. If that folder cannot be written to, the
-//! export goes to `<app data>/exports`. The file name is returned so the UI can say exactly where
-//! it went. Names are unique (millisecond + random suffix) and never overwrite. The content is
-//! written to a hidden temp file in the same folder, flushed, then renamed, so a failed write
-//! leaves no partial plaintext; the file is owner-only (0600) on Unix.
+//! Where files go: `commands::export_ledger` always writes into `<app data>/exports` (app-private),
+//! and the UI then offers the system save screen (`crate::transfer::save_copy`) to put a copy where
+//! the user wants it. The file name is returned so the UI can say exactly where the private copy is
+//! if the save screen fails. Names are unique (millisecond + random suffix) and never overwrite. The
+//! content is written to a hidden temp file in the same folder, flushed, then renamed, so a failed
+//! write leaves no partial plaintext; the file is owner-only (0600) on Unix.
 //!
 //! Format: `schema_version` 1. Every export is PLAIN, unencrypted text. Notes are included only
 //! when the caller asks; otherwise the note column/field does not exist. Undone entries and

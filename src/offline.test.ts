@@ -25,9 +25,21 @@ describe("offline / no-network separation", () => {
     expect(caps.permissions).toEqual(["core:default"]);
   });
 
+  it("the dialog and fs plugins (Rust-only, for save/pick) are granted nothing and have no JavaScript package", () => {
+    const dir = join(root, "src-tauri/capabilities");
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".json"))) {
+      const caps = JSON.parse(read(`src-tauri/capabilities/${f}`));
+      expect(JSON.stringify(caps.permissions), f).not.toMatch(/fs:|dialog:|http:|shell:|opener:|updater:/);
+      expect(caps.permissions, f).not.toContain("fs:default");
+    }
+    const pkg = JSON.parse(read("package.json"));
+    const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).join(" ");
+    expect(deps).not.toMatch(/plugin-fs|plugin-dialog/);
+  });
+
   it("has no HTTP client, telemetry, or sync dependencies", () => {
     const cargo = read("src-tauri/Cargo.toml");
-    expect(cargo).not.toMatch(/reqwest|hyper|ureq|isahc|tauri-plugin-(http|shell|fs|updater|opener)|sentry/);
+    expect(cargo).not.toMatch(/reqwest|hyper|ureq|isahc|tauri-plugin-(http|shell|updater|opener)|sentry/);
     const pkg = JSON.parse(read("package.json"));
     const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).join(" ");
     expect(deps).not.toMatch(/axios|sentry|analytics|plugin-http/);

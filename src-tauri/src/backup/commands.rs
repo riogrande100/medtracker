@@ -5,28 +5,19 @@ use crate::commands::Db;
 use crate::error::{AppError, AppResult};
 use crate::fsutil;
 use crate::storage::migrations::MIGRATIONS;
+use crate::transfer;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use zeroize::Zeroizing;
 
-/// Where backups are written, preferred folder first: "MedTracker Backups" inside the user's
-/// Documents folder (visible in their file manager), then the app's own data folder. The second is
-/// also the only one where the OS has no Documents folder, and the fallback when the first cannot
-/// be written to.
+/// Where backups are created: always the app's own folder (owner-only, never shared). The user
+/// gets a copy out of the app with `transfer::save_copy` (system save screen), and brings one back
+/// with `transfer::pick_backup_file`; neither depends on a user-visible folder.
 fn backup_dirs(app: &AppHandle) -> AppResult<Vec<PathBuf>> {
-    let p = app.path();
-    let mut dirs = vec![];
-    if let Ok(d) = p.document_dir() {
-        if d.is_dir() {
-            dirs.push(d.join("MedTracker Backups"));
-        }
-    }
-    dirs.push(p.app_data_dir().map_err(|e| AppError::Storage(e.to_string()))?.join("backups"));
-    Ok(dirs)
+    Ok(vec![transfer::backups_dir(app)?])
 }
 
-/// The backup folder and the backups found in it (and in the fallback folder, if a backup ever had
-/// to go there). Nothing is opened or decrypted.
+/// The app's backup folder and the backups found in it. Nothing is opened or decrypted.
 #[tauri::command]
 pub fn backup_folder(app: AppHandle) -> AppResult<BackupFolder> {
     let dirs = backup_dirs(&app)?;
@@ -64,7 +55,8 @@ pub async fn create_backup(app: AppHandle, passphrase: String) -> AppResult<Back
     .map_err(join_err)?
 }
 
-/// Restores from `path`. The live database is replaced only after the backup has been fully
+/// Restores from `path`, which must be one of the app's own backups or the staged copy of a file
+/// the user picked (`transfer::pick_backup_file`); anything else is refused before it is read. The live database is replaced only after the backup has been fully
 /// verified; the whole swap happens while the database lock is held, so no other command can
 /// write in between. `path` is only ever read, and anything that is not a valid backup under this
 /// passphrase is refused with a typed error before any live file is touched. Only one backup or
@@ -80,8 +72,10 @@ pub async fn restore_backup(app: AppHandle, path: String, passphrase: String) ->
             return Err(e.clone());
         }
         let live = db.path().to_path_buf();
+        let staging = transfer::staging_dir(&app)?;
+        let file = transfer::ensure_inside(&path, &[transfer::backups_dir(&app)?, staging.clone()])?;
         // Phase 1 needs no database access, so the lock is not held during the slow part.
-        let staged = super::prepare_restore(&live, std::path::Path::new(path.trim()), &passphrase, MIGRATIONS)?;
+        let staged = super::prepare_restore(&live, &file, &passphrase, MIGRATIONS)?;
         let mut lock = db.conn.lock().map_err(|_| AppError::Storage("database unavailable".into()))?;
         let conn = lock.take().ok_or_else(|| AppError::Storage("database unavailable".into()))?;
         let (new_conn, result) = super::commit_restore(&live, conn, staged);
@@ -94,6 +88,11 @@ pub async fn restore_backup(app: AppHandle, path: String, passphrase: String) ->
             }
         }
         *lock = new_conn;
+        if result.is_ok() {
+            // The picked copy has done its job; a failed attempt keeps it so a retry (for example
+            // with the right passphrase) does not need the picker again.
+            transfer::clear_staging(&staging);
+        }
         result
     })
     .await

@@ -1,12 +1,14 @@
 Act as a senior product architect, Rust/Tauri engineer, and UX designer. Create or revise an implementation-ready product specification and phased engineering roadmap for the application described below.
 
+**Scope amendment (2026-11-19, owner decision D-29):** the first release is mobile only (iOS + Android). Windows and macOS desktop are deferred, not removed; the original definition of done (four signed builds) is amended accordingly for the first release. Where this brief lists four targets, read it as the long-term intent; `docs/product-spec.md` governs.
+
 **Status of this brief:** the merged specification in `docs/product-spec.md` is authoritative and supersedes this brief wherever they differ; read `docs/README.md` and `docs/current-state.md` first. A Phase 1 vertical slice already exists in the repository and is not accepted evidence. Reuse the stable requirement IDs (PR-xx), decision IDs (D-xx), gate names (G0-G4, GT-*), and ticket IDs (Bx-xx) already defined in `docs/`; do not invent new ones that collide.
 
 This brief is for the planning task: do not generate application code when asked only to plan or revise documents. Implementation work follows `docs/backlog.md`. Make concrete recommendations, explain important tradeoffs, and distinguish verified framework capabilities from assumptions that need a technical spike.
 
 ## Product concept
 
-A user-friendly medication tracking application for iOS, Android, Windows, and macOS, built with Tauri 2, a Rust core, and a React/TypeScript/Vite frontend. The local SQLite ledger is the source of truth.
+A user-friendly medication tracking application for iOS and Android first (Windows and macOS deferred, D-29), built with Tauri 2, a Rust core, and a React/TypeScript/Vite frontend. The local SQLite ledger is the source of truth.
 
 The app lets users:
 
@@ -34,7 +36,7 @@ This is a logging, scheduling, and reporting tool—not a medical-advice tool. I
 - Bundle the medication catalog with the application.
 - Update the catalog only through app releases.
 - Permit manual medication entry.
-- iOS, Android, Windows, and macOS are primary targets. No target is first by assumption (not iOS-first, not Linux-first). Recommend staged validation and release order from per-platform evidence without treating their notification or health capabilities as equivalent.
+- iOS and Android are the first-release targets; Windows and macOS are deferred (D-29). No target is first by assumption (not iOS-first, not Linux-first). Recommend staged validation and release order from per-platform evidence without treating their notification or health capabilities as equivalent.
 - HealthKit and Android Health Connect / Google health are optional, separately authorized feasibility work that must not block the MVP. Integrations must be provenance-aware and unable to silently duplicate local dose records, and an external platform's acceptance never proves a dose was taken.
 - Model policy for delegated work: Haiku 5.5 for mechanical and documentation tasks, Sonnet 5.5 for standard implementation, and Sonnet 5.5 with high reasoning for DST/time-zone, backup, security, and architecture.
 - Favor a small, maintainable architecture suitable for an initial solo-developer implementation.
@@ -132,8 +134,8 @@ Verify current Tauri v2 notification capabilities separately for:
 
 - iOS.
 - Android.
-- Windows.
-- macOS.
+- Windows (deferred, D-29).
+- macOS (deferred, D-29).
 
 Do not assume feature parity or that desktop scheduling works like mobile scheduling.
 

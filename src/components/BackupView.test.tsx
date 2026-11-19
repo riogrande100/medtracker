@@ -2,13 +2,13 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { App } from "../App";
-import type { Api, BackupFile } from "../lib/api";
+import type { Api, BackupFile, PickedBackup } from "../lib/api";
 import { fakeApi } from "../test/fakeApi";
 import { BackupView } from "./BackupView";
 
 const file = (over: Partial<BackupFile> = {}): BackupFile => ({
   name: "MedTracker-backup-2026-03-10-0930.medbackup",
-  path: "/Documents/MedTracker Backups/MedTracker-backup-2026-03-10-0930.medbackup",
+  path: "/data/MedTracker/backups/MedTracker-backup-2026-03-10-0930.medbackup",
   size_bytes: 8192,
   modified_utc_us: 1_773_133_800_000_000,
   ...over,
@@ -49,9 +49,44 @@ describe("Create backup", () => {
     await user.click(create);
     expect(createBackup).toHaveBeenCalledWith("long enough pass");
     expect(await screen.findByRole("status")).toHaveTextContent("Backup saved and checked.");
-    expect(screen.getByRole("status")).toHaveTextContent("/p/b.medbackup");
+    expect(screen.getByText("/p/b.medbackup")).toBeInTheDocument();
     // The passphrase is cleared once used.
     expect(screen.getByLabelText("Passphrase")).toHaveValue("");
+  });
+
+  it("offers Save a copy after creating, hands the private file to the system, and says when nothing was saved", async () => {
+    const user = userEvent.setup();
+    const saveCopy = vi.fn().mockResolvedValueOnce({ saved: false, bytes: 0 }).mockResolvedValueOnce({ saved: true, bytes: 2048 });
+    setup({
+      saveCopy,
+      createBackup: async () => ({ path: "/p/b.medbackup", file_name: "b.medbackup", created_at_utc_us: 1, medications: 1, doses: 2, schedules: 0, size_bytes: 2048 }),
+    });
+    expect(screen.queryByRole("button", { name: "Save a copy" })).not.toBeInTheDocument();
+    await user.type(await screen.findByLabelText("Passphrase"), "long enough pass");
+    await user.type(screen.getByLabelText("Type the passphrase again"), "long enough pass");
+    await user.click(screen.getByRole("button", { name: "Create backup" }));
+
+    const save = await screen.findByRole("button", { name: "Save a copy" });
+    expect(screen.getByText("/p/b.medbackup")).toBeInTheDocument(); // where the private file is, in case the system screen fails
+    await user.click(save);
+    expect(saveCopy).toHaveBeenCalledWith("/p/b.medbackup");
+    expect(await screen.findByText(/Nothing was saved/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save a copy" }));
+    expect(await screen.findByText("A copy was saved where you chose.")).toBeInTheDocument();
+  });
+
+  it("keeps the private file and its location when the system save screen fails", async () => {
+    const user = userEvent.setup();
+    setup({
+      saveCopy: async () => Promise.reject({ kind: "storage", message: "Could not write to the place you chose (permission denied). Your file is still saved inside MedTracker." }),
+      createBackup: async () => ({ path: "/p/b.medbackup", file_name: "b.medbackup", created_at_utc_us: 1, medications: 1, doses: 2, schedules: 0, size_bytes: 2048 }),
+    });
+    await user.type(await screen.findByLabelText("Passphrase"), "long enough pass");
+    await user.type(screen.getByLabelText("Type the passphrase again"), "long enough pass");
+    await user.click(screen.getByRole("button", { name: "Create backup" }));
+    await user.click(await screen.findByRole("button", { name: "Save a copy" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("still saved inside MedTracker");
+    expect(screen.getByText("/p/b.medbackup")).toBeInTheDocument();
   });
 
   it("masks the passphrase unless asked to show it", async () => {
@@ -107,16 +142,56 @@ describe("Restore", () => {
     expect(screen.getByLabelText("Backup passphrase")).toHaveValue("");
   });
 
-  it("prefers a typed path over the selected file", async () => {
+  it("restores from a file chosen with the system picker, using the private staged copy, and only after confirmation", async () => {
     const user = userEvent.setup();
+    const picked: PickedBackup = { path: "/data/MedTracker/import-staging/picked.medbackup", name: "from-drive.medbackup", size_bytes: 20_000 };
+    const pickBackupFile = vi.fn(async () => picked);
     const restoreBackup = vi.fn(async () => ({ backup_created_at_utc_us: 1, medications: 0, doses: 0, schedules: 0, upgraded_from: null, safety_copy_kept: true }));
-    setup({ restoreBackup });
-    await user.click(await screen.findByRole("radio"));
-    await user.type(screen.getByLabelText(/type the full path/i), "  /usb/mine.medbackup ");
+    setup({ pickBackupFile, restoreBackup });
+    const restore = await screen.findByRole("button", { name: "Restore this backup" });
+    await user.click(screen.getByRole("radio"));
+    await user.click(screen.getByRole("button", { name: "Choose a backup file" }));
+    expect(pickBackupFile).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/from-drive\.medbackup/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing has been restored yet/)).toBeInTheDocument();
+    expect(screen.getByRole("radio")).not.toBeChecked(); // the picked file replaces the kept-backup choice
+    expect(screen.getByRole("button", { name: "Choose a different backup file" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Backup passphrase"), "x");
+    await user.click(restore);
+    expect(restoreBackup).not.toHaveBeenCalled();
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Replace my data" }));
+    expect(restoreBackup).toHaveBeenCalledWith(picked.path, "x");
+  });
+
+  it("says so when no file was chosen, and shows why when the picker or the copy fails", async () => {
+    const user = userEvent.setup();
+    const pickBackupFile = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce({ kind: "storage", message: "Could not read the file you chose (denied). Your data was not changed." });
+    setup({ pickBackupFile }, []);
+    await user.click(await screen.findByRole("button", { name: "Choose a backup file" }));
+    expect(await screen.findByText("No file was chosen.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Choose a backup file" }));
+    expect(await screen.findByText(/Could not read the file you chose/)).toBeInTheDocument();
+    // Nothing is selected, so restore stays disabled even with a passphrase.
+    await user.type(screen.getByLabelText("Backup passphrase"), "x");
+    expect(screen.getByRole("button", { name: "Restore this backup" })).toBeDisabled();
+  });
+
+  it("keeps the picked file for a retry after a wrong passphrase, and discards it when a kept backup is chosen instead", async () => {
+    const user = userEvent.setup();
+    const restoreBackup = vi.fn().mockRejectedValueOnce({ kind: "backup_wrong_passphrase", message: "That passphrase does not open this backup." });
+    const discardStagedBackup = vi.fn(async () => {});
+    setup({ restoreBackup, discardStagedBackup });
+    await user.click(await screen.findByRole("button", { name: "Choose a backup file" }));
+    await screen.findByText(/Nothing has been restored yet/);
+    await user.type(screen.getByLabelText("Backup passphrase"), "bad");
     await user.click(screen.getByRole("button", { name: "Restore this backup" }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Replace my data" }));
-    expect(restoreBackup).toHaveBeenCalledWith("/usb/mine.medbackup", "x");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your current data was not changed.");
+    expect(screen.getByText(/Nothing has been restored yet/)).toBeInTheDocument(); // still chosen
+    expect(discardStagedBackup).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("radio"));
+    expect(discardStagedBackup).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Nothing has been restored yet/)).not.toBeInTheDocument();
   });
 
   it.each([
@@ -137,10 +212,11 @@ describe("Restore", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("explains an empty backup folder and still lets the user type a path", async () => {
+  it("always offers the picker, and lists kept backups only when there are some", async () => {
     setup({}, []);
-    expect(await screen.findByText("No backups found there yet.")).toBeInTheDocument();
-    expect(screen.getByLabelText(/type the full path/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Choose a backup file" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/type the full path/i)).not.toBeInTheDocument();
   });
 });
 

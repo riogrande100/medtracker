@@ -3,7 +3,7 @@
 **Status:** Planning artifact. No ticket below is accepted as Done. A Phase 1 vertical slice (Tauri 2 + React/TypeScript/Vite + Rust, SQLite migrations, snapshots, ledger, History) already exists on `main` ([current-state.md](current-state.md)); it is a candidate starting point, not accepted work. Per governance rule 5 below, that code counts toward a ticket only after the ticket's tests and independent reviews pass, and four independent-review findings against it are being fixed first (see Phase 1 introduction).
 **Governs with:** [product-spec.md](product-spec.md) (requirements `PR-xx`, phases, gates) · [registers.md](registers.md) (decisions `D-xx`, gates `GT-xx`) · [release-evidence.md](release-evidence.md).
 
-The primary experience this backlog optimizes: a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** (PR-19–PR-21). Four primary targets: iOS, Android, Windows, macOS (PR-24). Excluded: accounts, auth, subscriptions, arbitrary sync, ads, analytics, dose recommendations, interaction checking, clinical claims (PR-22). Local SQLite is the source of truth and connectivity loss never blocks local logging (PR-01); the runtime network allowlist is currently empty (PR-23). Optional health-platform work is feasibility-only and non-blocking (PR-28, B0-09, B4-07).
+The primary experience this backlog optimizes: a non-technical user opens **Today**, identifies the medication that is due, records **Taken** or **Skip**, and can **Undo** (PR-19–PR-21). **First release scope is mobile only (iOS + Android) by owner decision D-29 (2026-11-19).** Windows and macOS desktop are DEFERRED, not removed (see [Deferred section](#deferred-desktop-tickets-d-29)); the original four-target definition of done is amended for the first release. PR-24 now reads as: iOS and Android are the release targets; Windows/macOS re-enter only under the D-29 criterion. Excluded: accounts, auth, subscriptions, arbitrary sync, ads, analytics, dose recommendations, interaction checking, clinical claims (PR-22). Local SQLite is the source of truth and connectivity loss never blocks local logging (PR-01); the runtime network allowlist is currently empty (PR-23). Optional health-platform work is feasibility-only and non-blocking (PR-28, B0-09, B4-07).
 
 ## Governance rules
 
@@ -68,7 +68,7 @@ The primary experience this backlog optimizes: a non-technical user opens **Toda
 
 ### CI cost policy (D-08, reversible)
 
-Target-neutral logic tests and doc checks run on the cheapest runner on each change; this does not make Linux a target or a gate. Per-target builds for iOS, Android, Windows, macOS are on-demand or pre-release and path-filtered; target evidence always comes from a real build of that target. Release/signing workflows are introduced only in B3-08, after the relevant gates have artifacts.
+Target-neutral logic tests and doc checks run on the cheapest runner on each change; this does not make Linux a target or a gate. Per-target builds for iOS and Android are on-demand (desktop builds run on the macOS dev host for iteration and tests only; no desktop release builds, D-29) or pre-release and path-filtered; target evidence always comes from a real build of that target. Release/signing workflows are introduced only in B3-08, after the relevant gates have artifacts.
 
 ## Dependency graph (critical path in bold)
 
@@ -78,11 +78,12 @@ flowchart LR
     B001[B0-01 builds]:::cp --> B002[B0-02 mobile notif spike]
     B001 --> B004[B0-04 time/zone]:::cp
     B001 --> B005[B0-05 privacy decision]
-    B001 --> B006[B0-06 desktop notif spike]
+    B001 --> B010[B0-10 Android SDK/NDK + mobile sim setup]:::cp
+    B006[B0-06 desktop notif spike DEFERRED]
     B001 --> B007[B0-07 egress harness]
     B001 --> B009[B0-09 optional health feasibility]
     B003[B0-03 catalog license]
-    B002 & B003 & B004 & B005 & B006 & B007 --> B008[B0-08 G0 synthesis]
+    B002 & B003 & B004 & B005 & B007 --> B008[B0-08 G0 synthesis]
     B009 -. non-blocking .-> B008
   end
   subgraph P1[Phase 1 core loop]
@@ -110,6 +111,7 @@ flowchart LR
   end
   subgraph P3[Phase 3 per target]
     B301[B3-01 a11y audit] & B302[B3-02 usability GT-UX] & B303[B3-03 perf] & B304[B3-04 security] & B305[B3-05 signing] & B307[B3-07 recovery] & B309[B3-09 legal] --> B310[B3-10 release checklist]
+    B311[B3-11 mobile file picker / share sheet] --> B310
     B305 & B309 --> B306[B3-06 store]
     B305 --> B308[B3-08 release pipeline]
     B306 & B308 --> B310
@@ -135,13 +137,13 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 - **Tests:** run the command on the current docs; zero errors, or each remaining error listed with a reason.
 - **Review:** RV-DOC.
 
-### B0-01 — Four-target build and install baseline
+### B0-01 — Mobile build and install baseline (iOS, Android; desktop deferred)
 **Phase 0 · Must · L · PR-16, PR-17, PR-24** · **Owner:** T2 builds; **H** supplies hosts/devices/accounts · **Depends on:** none
 **Files:** `spikes/B0-01/**`, `docs/evidence/B0-01/**`
-- **Acceptance:** for each of iOS, Android, Windows, macOS: a minimal Tauri v2 app builds from a clean checkout and installs/launches on a real device or host, **or** a "blocked: <missing host/device/account/toolchain>" record names the human action needed. Records: toolchain versions, app-data path, signing/provisioning prerequisites, build time. No product UI. Simulator/emulator runs are recorded as such and never marked as physical-device evidence.
+- **Acceptance:** for each of iOS and Android (Windows and macOS deferred by D-29; their baseline is DT-01/DT-02): a minimal Tauri v2 app builds from a clean checkout and installs/launches on a real device or host, **or** a "blocked: <missing host/device/account/toolchain>" record names the human action needed. Records: toolchain versions, app-data path, signing/provisioning prerequisites, build time. No product UI. Simulator/emulator runs are recorded as such and never marked as physical-device evidence.
 - **Tests:** scripted build log per target; launch screenshot or log; uninstall/reinstall note.
 - **Review:** RV-CODE (scripts), RV-HUMAN (device claims).
-- **Note:** on the planning host, Xcode and the Rust iOS targets are installed, but no Android SDK/Java runtime was found and Windows needs another host (see [current-state.md](current-state.md)). Windows and Android therefore start as "blocked: missing host/toolchain" until a human provides them.
+- **Note:** on the planning host, Xcode and the Rust iOS targets are installed, but no Android SDK/Java runtime was found and Windows needs another host (see [current-state.md](current-state.md)). Android therefore starts as "blocked: missing toolchain" until B0-10 or a human provides it. The Windows host gap is no longer a release blocker (D-29). The macOS host stays the iOS build/signing host.
 
 ### B0-02 — iOS/Android native notification spike
 **Phase 0 · Must · XL · PR-13, PR-05** · **Owner:** T2 implements; **H** runs devices; T3 reviews results · **Depends on:** B0-01
@@ -172,7 +174,8 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 - **Tests:** per-target backup-behavior test where devices exist; otherwise "unverified" with reason.
 - **Review:** RV-SEC.
 
-### B0-06 — Windows/macOS notification spike
+### B0-06 — Windows/macOS notification spike (DEFERRED, D-29; tracked as DT-06)
+**DEFERRED — not in the first release; not a dependency of B0-08/G0.** See [Deferred section](#deferred-desktop-tickets-d-29).
 **Phase 0 · Should · L · PR-13** · **Owner:** T2 implements; **H** runs hosts · **Depends on:** B0-01
 **Files:** `spikes/B0-06/**`, `docs/evidence/B0-06/**`
 - **Acceptance:** records behavior of immediate notifications via the official plugin on installed Windows and macOS builds, and feasibility of one native scheduling integration each (app closed, sleep, restart); verdict per platform: add reminders later / in-app only. No claim without a run.
@@ -187,7 +190,7 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 - **Review:** RV-SEC.
 
 ### B0-08 — Phase 0 evidence synthesis (G0)
-**Phase 0 · Must · M · PR-16, PR-24** · **Owner:** T3 (product owner role) · **Depends on:** B0-02, B0-03, B0-04, B0-05, B0-06, B0-07
+**Phase 0 · Must · M · PR-16, PR-24** · **Owner:** T3 (product owner role) · **Depends on:** B0-02, B0-03, B0-04, B0-05, B0-07 (B0-06 deferred, D-29), B0-10
 **Files:** `docs/product-spec.md` (decisions/matrix updates), `docs/registers.md`, `docs/release-evidence.md` (status updates), `docs/evidence/B0-08/**`
 - **Acceptance:** per platform: reminder scope (full / best-effort / in-app only), build status, blockers; registers updated; each decision marked with its evidence link; items still lacking evidence remain NOT PASSED.
 - **Tests:** RV-DOC consistency pass across all docs.
@@ -201,6 +204,13 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 - **Review:** RV-SEC, RV-HUMAN. **Does not block G0, Phase 1, Phase 2, or any release.**
 
 ---
+
+### B0-10 — Android SDK/NDK and tauri iOS/Android simulator build setup
+**Phase 0 · Must · M · PR-16, PR-17, PR-24** · **Owner:** T2 scripts and records; **H** installs licensed/large toolchains and supplies devices · **Depends on:** B0-01 · **Gate:** feeds GT-DEV-IOS, GT-DEV-AND (setup alone passes nothing)
+**Files:** `spikes/B0-10/**`, `docs/evidence/B0-10/**`
+- **Acceptance:** documented, repeatable setup on the macOS host: Android SDK, NDK, and a Java runtime installed and pinned (versions recorded); Rust Android targets added; `tauri android init` succeeds; the app builds for an Android emulator and `tauri android dev` launches it; `tauri ios build/dev` builds and launches on an iOS simulator; environment variables and any signing/provisioning prerequisites listed; blockers recorded as "blocked: <human action>" rather than assumed. Simulator and emulator runs are recorded as such; they never count as physical-device evidence.
+- **Tests:** scripted build log per target; launch screenshot or log; clean-checkout rerun.
+- **Review:** RV-CODE (scripts), RV-HUMAN (device claims).
 
 ## Phase 1 — the Today core loop
 
@@ -256,7 +266,7 @@ Four independent-review findings against the slice are being fixed and are folde
 ### B1-07 — Design foundation (tokens and accessible components)
 **Phase 1 · Must · M · PR-15, PR-17, PR-26 (readiness)** · **Owner:** T2 · **Depends on:** B1-01
 - **Acceptance:** bundled design tokens (spacing, type scale, color roles incl. a replaceable accent role and fixed destructive/success/warning roles, focus ring) inspired by Geist principles; components: Button, Card, Sheet/Dialog, Tabs/Nav (bottom bar narrow, side rail wide), Snackbar-with-Undo, Banner, Empty/Loading/Error states; light/dark; reduced-motion; no remote fonts or assets; any adopted Geist asset's license is verified first (D-14).
-- **Tests:** contrast checks for all role pairs against WCAG 2.2 AA; focus-visible tests; responsive snapshot at phone/tablet/desktop widths.
+- **Tests:** contrast checks for all role pairs against WCAG 2.2 AA; focus-visible tests; responsive snapshot at phone and tablet widths (a desktop-width snapshot may remain as a dev-host sanity check; desktop layouts are deferred, D-29).
 - **Review:** RV-A11Y, RV-CODE.
 
 ### B1-08 — History timeline
@@ -358,23 +368,23 @@ Four independent-review findings against the slice are being fixed and are folde
 
 ---
 
-## Phase 3 — native integrations, hardening, and first release (per target)
+## Phase 3 — native integrations, hardening, and first release (mobile: iOS and Android)
 
-Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and recorded in that target's matrix in [release-evidence.md](release-evidence.md). All Phase 3 gates are **NOT PASSED — evidence-dependent** until artifacts exist.
+Each Phase 3 ticket is executed per mobile target (iOS, Android) and recorded in that target's matrix in [release-evidence.md](release-evidence.md). Windows and macOS are DEFERRED by D-29; their Phase 3 counterparts are in the Deferred section. All Phase 3 gates are **NOT PASSED — evidence-dependent** until artifacts exist.
 
 ### B3-01 — Accessibility audit with assistive technology
 **Phase 3 · Must · L · PR-15** · **Owner:** H + T2 · **Depends on:** B2-05, B2-08 · **Gate:** GT-A11Y
-- **Acceptance:** WCAG 2.2 AA checklist run per target with VoiceOver (iOS/macOS), TalkBack, a Windows screen reader, keyboard-only (desktop), text scaling, contrast, focus order, reduce-motion; defects ticketed; conformance stated only per target with evidence.
+- **Acceptance:** WCAG 2.2 AA checklist run per mobile target with VoiceOver (iOS), TalkBack (Android), external-keyboard operation where the OS supports it, text scaling, contrast, focus order, reduce-motion; defects ticketed; conformance stated only per target with evidence.
 - **Review:** RV-A11Y, RV-HUMAN.
 
 ### B3-02 — Stakeholder usability study (GT-UX)
 **Phase 3 · Must · L · PR-27** · **Owner:** H facilitates; T1 compiles · **Depends on:** B1-10, B2-08
-- **Acceptance:** sessions per the approved protocol with representative non-technical participants on at least one target per form factor (phone, desktop) available at the time; results reported against the pre-approved threshold; failures become tickets; no data invented.
+- **Acceptance:** sessions per the approved protocol with representative non-technical participants on at least one mobile target (phone form factor; tablet if available); results reported against the pre-approved threshold; failures become tickets; no data invented.
 - **Review:** RV-HUMAN (product owner). **Gate:** GT-UX.
 
 ### B3-03 — Performance and size baselines
 **Phase 3 · Should · M · PR-16** · **Owner:** T2 · **Depends on:** B2-09
-- **Acceptance:** per-target install size, cold launch, Today render, timeline/chart query on the fixture, backup/restore time, memory — measured on named devices, recorded with method; regression budgets proposed from measurements; no promises beyond the data.
+- **Acceptance:** per-mobile-target install size, cold launch, Today render, timeline/chart query on the fixture, backup/restore time, memory — measured on named devices, recorded with method; regression budgets proposed from measurements; no promises beyond the data.
 - **Review:** RV-CODE.
 
 ### B3-04 — Security and privacy review
@@ -382,9 +392,9 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 - **Acceptance:** threat-model check per spec §9; log redaction, temp-file, notification preview, backup-exclusion, wipe, allowlist, and dependency review; findings dispositioned.
 - **Review:** RV-HUMAN.
 
-### B3-05 — Signing and notarization proof (GT-SIGN)
+### B3-05 — Mobile signing proof (GT-SIGN); desktop signing/notarization deferred (DT-05)
 **Phase 3 · Must · L · PR-24** · **Owner:** **H** accounts/keys; T2 scripts · **Depends on:** B2-09
-- **Acceptance:** per target, a signed installable artifact produced and installed on a clean device/host, with the mechanism, cost, renewal cadence, key custody, and operational owner documented; keys never in the repo. Mechanisms (Apple signing/notarization, Play App Signing, Windows code signing) are candidates verified against current vendor docs during this ticket.
+- **Acceptance:** for iOS and Android, a signed installable artifact produced and installed on a clean device, with the mechanism, cost, renewal cadence, key custody, and operational owner documented; keys never in the repo. Mechanisms (Apple signing/provisioning and TestFlight, Play App Signing) are candidates verified against current vendor docs during this ticket.
 - **Review:** RV-HUMAN. **Gate:** GT-SIGN.
 
 ### B3-06 — Store readiness (GT-STORE)
@@ -394,13 +404,13 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 
 ### B3-07 — Recovery, upgrade, and deletion tests
 **Phase 3 · Must · M · PR-10–PR-12** · **Owner:** T2 · **Depends on:** B2-08, B2-09
-- **Acceptance:** per target: upgrade from a prior DB preserving records; failed-migration recovery; restore from backup; full wipe results and stated limits; low-storage behavior.
+- **Acceptance:** per mobile target: upgrade from a prior DB preserving records; failed-migration recovery; restore from backup; full wipe results and stated limits; low-storage behavior.
 - **Review:** RV-SEC. **Gate:** GT-REC.
 
 ### B3-08 — Release pipeline
 **Phase 3 · Should · M · PR-24** · **Owner:** T2 · **Depends on:** B3-05, B2-12
 **Files:** `.github/workflows/release-*.yml`
-- **Acceptance:** per-target workflows triggered manually or on release tags only; pinned dependencies; secrets via CI secret store; SBOM; no always-on multi-platform builds; cost estimate documented.
+- **Acceptance:** per-mobile-target workflows triggered manually or on release tags only; pinned dependencies; secrets via CI secret store; SBOM; no always-on multi-platform builds; cost estimate documented.
 - **Review:** RV-SEC, RV-CODE.
 
 ### B3-09 — Legal, intended-use, and disclosure review (GT-LEGAL)
@@ -409,20 +419,28 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 - **Gate:** GT-LEGAL.
 
 ### B3-10 — Release checklist and evidence compilation
-**Phase 3 · Must · S · PR-24** · **Owner:** T1 compiles; T3 product-owner sign-off · **Depends on:** B3-01 … B3-09
+**Phase 3 · Must · S · PR-24** · **Owner:** T1 compiles; T3 product-owner sign-off · **Depends on:** B3-01 … B3-09, B3-11
 **Files:** `docs/release-checklist.md`
-- **Acceptance:** per-target checklist: functional completion, docs, performance, security review, backup test, recovery test, matrix fully linked; any NOT PASSED cell blocks that target's release.
-- **Review:** RV-DOC, RV-HUMAN → **G3** (per target).
+- **Acceptance:** per-mobile-target checklist: functional completion, docs, performance, security review, backup test, recovery test, matrix fully linked; any NOT PASSED cell blocks that target's release.
+- **Review:** RV-DOC, RV-HUMAN → **G3** (iOS, Android).
+
+### B3-11 — System file picker / share sheet for export and backup on mobile (launch blocker)
+**Phase 3 · Must · L · PR-10, PR-12, PR-24** · **Owner:** T2 implements; T3 RV-SEC; **H** device verification · **Depends on:** B2-07, B2-09, B0-10 · **Gate:** GT-REC (backup/restore), GT-NET (no network), launch blocker for G3
+**Files:** `src/features/export/**`, `src-tauri/src/commands/export.rs` (or equivalent), `docs/evidence/B3-11/**`
+- **Acceptance:** on iOS and Android, CSV/JSON export and the encrypted backup file can be saved to a user-chosen location through the system file picker or shared through the system share sheet (for example Files, a cloud drive the user already uses, email app), and restore can pick a backup file through the system picker; no custom network code or new allowlist entry is introduced (PR-23); temporary files are created in app-private storage and removed after hand-off; plain exports keep the D-23 warning; the encrypted backup stays encrypted in transit; failure or cancellation leaves the database and any existing backup untouched and shows a plain-language message. Until this ticket passes, export/backup that only writes into the app sandbox is not a usable release feature.
+- **Tests:** unit tests for temp-file lifecycle and cancel paths; per-target manual device evidence (file saved, re-picked, restored) recorded as not run until performed; egress capture shows zero attempts.
+- **Review:** RV-SEC, RV-CODE, RV-HUMAN.
 
 ---
 
-## Phase 4 — cross-platform parity and improvements
+## Phase 4 — improvements (mobile; desktop parity deferred, D-29)
 
 ### B4-01 — Close remaining target gaps
 **Phase 4 · Must · L · PR-24** · **Owner:** T2 + H · **Depends on:** B3-10 for the first released target; per-target Phase 3 tickets for the rest
-- **Acceptance:** each primary target not yet at G3 reaches G3, or has a product-owner-accepted recorded reason; no platform is shipped without its matrix complete.
+- **Acceptance:** each mobile target (iOS, Android) not yet at G3 reaches G3, or has a product-owner-accepted recorded reason; no platform is shipped without its matrix complete.
 
-### B4-02 — Desktop reminders (conditional)
+### B4-02 — Desktop reminders (DEFERRED, D-29; tracked as DT-06)
+**DEFERRED — see [Deferred section](#deferred-desktop-tickets-d-29).**
 **Phase 4 · Could · L · PR-13** · **Owner:** T2; T3 RV-SEC · **Depends on:** B0-06 verdict, B3-10
 - **Acceptance:** only if B0-06 + a follow-up spike pass for the platform; otherwise closed as won't-do with the in-app limitation disclosed.
 
@@ -450,6 +468,26 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 
 ---
 
+## Deferred desktop tickets (D-29)
+
+**Owner decision D-29 (2026-11-19):** the first release is mobile only (iOS + Android). Windows and macOS desktop work is DEFERRED, not removed. The code keeps building on the macOS dev host for fast iteration and tests, and that host remains the iOS build/signing host. Nothing below is scheduled, none gates G0-G4 or any GT-* gate except as stated, and no evidence cell in [release-evidence.md](release-evidence.md) may be marked passed for Windows/macOS.
+
+**Common owner:** product owner. **Common re-entry criterion:** mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-WIN/REM-MAC passes (or the owner accepts no scheduled desktop reminders) AND a Windows host plus Mac desktop signing/notarization are available. Register entries: DF-14, DF-15, DF-16 in [registers.md](registers.md#3-deferred-features).
+
+| ID | Deferred ticket | Original source | Reason | Gate affected |
+|---|---|---|---|---|
+| DT-01 | Windows build/install baseline on a real Windows host | B0-01 (Windows part) | No Windows host; owner decision D-29 | GT-DEV-WIN (DEFERRED) |
+| DT-02 | macOS desktop-app build/install baseline | B0-01 (macOS part) | D-29; the Mac remains the iOS build host regardless | GT-DEV-MAC (DEFERRED) |
+| DT-03 | Desktop window layouts and keyboard-first navigation (side rail, centered Today column, keyboard Taken/Skip/Undo) | B1-07, ux-journeys.md desktop section | D-29; no desktop usability/parity work in the release | none |
+| DT-04 | Desktop distribution channel selection (Microsoft Store/direct, Mac App Store/direct) | B3-06 (desktop part) | D-29 | GT-STORE (desktop part deferred) |
+| DT-05 | Windows code signing and macOS signing/notarization proof | B3-05 (desktop part) | D-29; no desktop signing in the first release | GT-SIGN (desktop part deferred) |
+| DT-06 | Desktop notification spikes: B0-06 (immediate plugin behavior plus native scheduling feasibility REM-WIN/REM-MAC) and B4-02 (desktop reminders). Plugin scheduling is already NO-GO on desktop | B0-06, B4-02 | D-29 | none |
+| DT-07 | Desktop accessibility audit (Windows screen reader, macOS VoiceOver, keyboard-only) and desktop package smoke tests (clean install, upgrade, app-data path) | B3-01, B3-07 (desktop parts), spec section 14 | D-29 | GT-A11Y, GT-REC (desktop parts deferred) |
+
+The ticket stubs B0-06 and B4-02 stay in place, marked DEFERRED, so existing links resolve.
+
+---
+
 ## Requirement traceability
 
 | Requirement | Tickets |
@@ -463,13 +501,13 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 | PR-07 | B1-04, B2-03, B2-06 |
 | PR-08 | B1-04, B1-05, B2-03, B2-04, B2-05 |
 | PR-09 | B1-08, B2-04, B2-05, B2-07 |
-| PR-10 | B2-07, B2-09, B3-07 |
+| PR-10 | B2-07, B2-09, B3-07, B3-11 |
 | PR-11 | B1-02, B2-08, B0-05 |
-| PR-12 | B1-02, B2-09, B3-07 |
-| PR-13 | B0-02, B0-06, B2-06, B2-08, B4-02 |
+| PR-12 | B1-02, B2-09, B3-07, B3-11 |
+| PR-13 | B0-02, B2-06, B2-08 (B0-06, B4-02 deferred: DT-06) |
 | PR-14 | B1-01 (architecture review), B1-02 |
 | PR-15 | B1-01, B1-06, B1-07, B1-08, B1-09, B2-05, B3-01, B4-04 |
-| PR-16 | B0-01, B0-08, B3-03 |
+| PR-16 | B0-01, B0-08, B0-10, B3-03 |
 | PR-17 | B0-01, B0-07, B1-01, B1-07, B2-01 |
 | PR-18 | B0-03, B2-08, B3-04, B3-09 |
 | PR-19 | B1-06, B1-09 |
@@ -477,7 +515,7 @@ Each Phase 3 ticket is executed per target (iOS, Android, Windows, macOS) and re
 | PR-21 | B1-05, B1-06, B1-08, B1-09 |
 | PR-22 | B0-07, B1-01, B2-08, B2-12, B3-04 |
 | PR-23 | B0-07, B1-01, B2-12, B4-05, B4-07 |
-| PR-24 | B0-01, B0-08, B3-05, B3-06, B3-08, B3-10, B4-01 |
+| PR-24 | B0-01, B0-08, B0-10, B3-05, B3-06, B3-08, B3-10, B3-11, B4-01 (desktop: DT-01..DT-07) |
 | PR-25 | B0-03, B2-01, B2-02, B3-09 |
 | PR-26 | B1-07, B2-10 |
 | PR-27 | B1-10, B3-02 |

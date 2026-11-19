@@ -13,6 +13,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# System save / open dialogs and content-URI-aware file access, used ONLY from Rust (see transfer.rs);
+# neither plugin has any permission granted to the web view in capabilities/.
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }

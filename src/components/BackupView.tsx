@@ -1,7 +1,8 @@
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useEffect, useState } from "react";
-import { type Api, type BackupCreated, type BackupFolder, type RestoreResult, errorMessage } from "../lib/api";
+import { type Api, type BackupCreated, type BackupFolder, type PickedBackup, type RestoreResult, errorMessage } from "../lib/api";
 import { formatLocal, nowLocalInput } from "../lib/format";
+import { SaveCopy } from "./SaveCopy";
 import { Button, Field, inputClass } from "./ui";
 
 const MIN_LENGTH = 8;
@@ -9,7 +10,7 @@ const MIN_LENGTH = 8;
 const when = (us: number) => formatLocal(nowLocalInput(new Date(us / 1000)));
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
-function CreateSection({ api, folder, onCreated }: { api: Api; folder: string; onCreated: () => void }) {
+function CreateSection({ api, onCreated }: { api: Api; onCreated: () => void }) {
   const [pass, setPass] = useState("");
   const [again, setAgain] = useState("");
   const [show, setShow] = useState(false);
@@ -40,8 +41,9 @@ function CreateSection({ api, folder, onCreated }: { api: Api; folder: string; o
     <section aria-labelledby="create-h" className="space-y-3">
       <h2 id="create-h" className="text-xl font-semibold">Create a backup</h2>
       <p>
-        This saves a copy of everything in MedTracker as one locked file on this device. It never goes online. To keep it safe, copy it to
-        somewhere else too, such as a USB drive.
+        This makes one locked file with a copy of everything in MedTracker. It never goes online. The file is first kept inside MedTracker;
+        then use Save a copy to put a copy somewhere else, such as Files, a cloud drive or a USB drive. A backup that only lives inside
+        MedTracker is lost if you delete the app or lose this device.
       </p>
       <p role="note" className="rounded-lg border-2 border-amber-700 bg-amber-50 p-4 font-medium">
         If you forget this passphrase, your backup cannot be opened. MedTracker doesn't keep your passphrase and nobody, including us, can
@@ -58,33 +60,61 @@ function CreateSection({ api, folder, onCreated }: { api: Api; folder: string; o
         <span>Show passphrase</span>
       </label>
       {problem && <p role="alert" className="text-red-800">{problem}</p>}
-      <p className="text-sm text-neutral-700">The file is saved in: <span className="break-all font-medium">{folder}</span></p>
       <Button variant="primary" className="w-full" disabled={!ready} onClick={create}>{busy ? "Creating…" : "Create backup"}</Button>
       {error && <p role="alert" className="text-red-800">{error}</p>}
       {done && (
         <div role="status" className="space-y-1 rounded-lg border border-brand bg-brand-soft p-4">
           <p className="font-medium">Backup saved and checked.</p>
-          <p className="break-all">{done.path}</p>
           <p>
             {done.medications} {done.medications === 1 ? "medication" : "medications"}, {done.doses} {done.doses === 1 ? "entry" : "entries"} ({kb(done.size_bytes)}).
             Anyone who has this file and its passphrase can read your records, so store both carefully.
           </p>
         </div>
       )}
+      {done && <SaveCopy key={done.path} api={api} path={done.path} hint="Next, save a copy outside MedTracker, such as in Files, a cloud drive or on a USB drive." />}
     </section>
   );
 }
 
 function RestoreSection({ api, folder, onChanged, onRestored }: { api: Api; folder: BackupFolder; onChanged: () => void; onRestored: () => void }) {
   const [selected, setSelected] = useState("");
-  const [typed, setTyped] = useState("");
+  const [picked, setPicked] = useState<PickedBackup | null>(null);
+  const [pickNote, setPickNote] = useState("");
+  const [picking, setPicking] = useState(false);
   const [pass, setPass] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<RestoreResult | null>(null);
 
-  const path = typed.trim() || selected;
+  // A file chosen with the system picker was copied into private staging; that copy is what is restored.
+  const path = picked?.path ?? selected;
   const ready = path !== "" && pass !== "" && !busy;
+
+  async function choose() {
+    setPicking(true);
+    setPickNote("");
+    setError("");
+    try {
+      const p = await api.pickBackupFile();
+      if (p) {
+        setPicked(p);
+        setSelected("");
+      } else {
+        setPickNote("No file was chosen.");
+      }
+    } catch (e) {
+      setPickNote(errorMessage(e));
+    } finally {
+      setPicking(false);
+    }
+  }
+
+  function selectKept(p: string) {
+    if (picked) void api.discardStagedBackup().catch(() => {});
+    setPicked(null);
+    setPickNote("");
+    setSelected(p);
+  }
 
   async function restore() {
     setBusy(true);
@@ -93,7 +123,7 @@ function RestoreSection({ api, folder, onChanged, onRestored }: { api: Api; fold
     try {
       setDone(await api.restoreBackup(path, pass));
       setPass("");
-      setTyped("");
+      setPicked(null);
       setSelected("");
       onChanged();
       onRestored();
@@ -112,22 +142,34 @@ function RestoreSection({ api, folder, onChanged, onRestored }: { api: Api; fold
         Restoring replaces what is in MedTracker now with what was in the backup. MedTracker checks the whole file first, and if anything is
         wrong it stops and your current data stays exactly as it is. This moves data between devices once; it does not keep them in sync.
       </p>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-neutral-800">Backups found in {folder.folder}</legend>
-        {folder.files.length === 0 && <p className="text-neutral-700">No backups found there yet.</p>}
-        {folder.files.map((f) => (
-          <label key={f.path} className="flex min-h-12 items-center gap-3 rounded-lg border border-neutral-300 bg-white px-3 py-2">
-            <input type="radio" name="backup-file" className="size-6" checked={selected === f.path} onChange={() => setSelected(f.path)} />
-            <span>
-              <span className="block break-all font-medium">{f.name}</span>
-              <span className="block text-sm text-neutral-700">Saved {when(f.modified_utc_us)} · {kb(f.size_bytes)}</span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      <Field label="Or type the full path of a backup file you copied here">
-        <input className={inputClass} type="text" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} />
-      </Field>
+      <Button variant="primary" className="w-full" disabled={picking || busy} onClick={choose}>
+        {picking ? "Waiting for you to choose…" : picked ? "Choose a different backup file" : "Choose a backup file"}
+      </Button>
+      <p className="text-sm text-neutral-700">
+        This opens your device's file screen, where you can pick a backup from Files, a cloud drive or a USB drive. MedTracker copies it
+        in and checks it; the original is not changed.
+      </p>
+      {picked && (
+        <p role="status" className="rounded-lg border border-brand bg-brand-soft p-3">
+          Chosen: <span className="break-all font-medium">{picked.name ?? "your file"}</span> ({kb(picked.size_bytes)}). Nothing has been
+          restored yet.
+        </p>
+      )}
+      {pickNote && <p role="status">{pickNote}</p>}
+      {folder.files.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-neutral-800">Or use a backup kept inside MedTracker</legend>
+          {folder.files.map((f) => (
+            <label key={f.path} className="flex min-h-12 items-center gap-3 rounded-lg border border-neutral-300 bg-white px-3 py-2">
+              <input type="radio" name="backup-file" className="size-6" checked={!picked && selected === f.path} onChange={() => selectKept(f.path)} />
+              <span>
+                <span className="block break-all font-medium">{f.name}</span>
+                <span className="block text-sm text-neutral-700">Saved {when(f.modified_utc_us)} · {kb(f.size_bytes)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       <Field label="Backup passphrase">
         <input className={inputClass} type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} />
       </Field>
@@ -187,7 +229,7 @@ export function BackupView({ api, onChanged }: { api: Api; onChanged: () => void
   if (!folder) return <p>Loading…</p>;
   return (
     <div className="space-y-8">
-      <CreateSection api={api} folder={folder.folder} onCreated={() => void load()} />
+      <CreateSection api={api} onCreated={() => void load()} />
       <hr className="border-neutral-300" />
       <RestoreSection api={api} folder={folder} onChanged={onChanged} onRestored={() => void load()} />
     </div>

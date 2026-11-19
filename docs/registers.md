@@ -4,9 +4,9 @@ Capability register, excluded and deferred features, decision register, and gate
 
 ## 1. Capability register
 
-Legend — **Planned**: intended, not built. **Gated**: built only after the named gate has an artifact. **Spike**: feasibility unknown until the named ticket runs. **Not promised**: no commitment on that target. **Excluded**: out of scope. Every cell is "not verified" at baseline.
+Legend — **Planned**: intended, not built. **Gated**: built only after the named gate has an artifact. **Spike**: feasibility unknown until the named ticket runs. **Not promised**: no commitment on that target. **Excluded**: out of scope. Every cell is "not verified" at baseline. **Windows and macOS columns are DEFERRED by owner decision D-29 (2026-11-19): first release is mobile only (iOS + Android). Cells in those columns describe deferred, non-release intent and carry no release commitment.**
 
-| Capability | Req | iOS | Android | Windows | macOS | Phase / tickets |
+| Capability | Req | iOS | Android | Windows (DEFERRED, D-29) | macOS (DEFERRED, D-29) | Phase / tickets |
 |---|---|---|---|---|---|---|
 | Open to Today; Due now / Upcoming / Recorded / Earlier-not-logged | PR-19 | Planned | Planned | Planned | Planned | 1 · B1-06 |
 | One-step Taken / Skip / Log as needed | PR-20 | Planned | Planned | Planned | Planned | 1 · B1-05, B1-06 |
@@ -57,7 +57,7 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | DF-03 | Arbitrary recurrence (RRULE) editor | Complexity (spec non-goal). | B4-03 research shows needed patterns. |
 | DF-04 | One-tap "Taken" from a notification | Would conflate interaction with a ledger event. | Only with a design that preserves PR-05, reviewed by RV-SEC/RV-UX. |
 | DF-05 | Observation charts / co-occurrence overlays | Risk of implied causation. | Descriptive overlay design with non-causality text approved. |
-| DF-06 | Windows/macOS scheduled reminders | Official plugin schedules mobile only; needs native integration. | B0-06 + follow-up spike pass (B4-02). |
+| DF-06 | Windows/macOS scheduled reminders | Official plugin schedules mobile only; needs native integration. Now also subsumed by the desktop deferral (D-29, DF-14..DF-16). | Desktop re-entry criterion (D-29) plus B0-06 / REM-WIN / REM-MAC follow-up spike pass (DT-06). |
 | DF-07 | SQLCipher/database-level encryption | Build, key-management, and licensing cost. | B0-05 shows the threat model requires it. |
 | DF-08 | Optional health-platform integration (HealthKit, Android Health Connect / Google health) | Optional, separately authorized, non-blocking (PR-28). Needs consent, provenance, duplicate handling; platform acceptance never proves a dose. If it needs any endpoint it must pass the PR-23 allowlist process. | B0-09 go verdict plus separate user authorization (B4-07). |
 | DF-09 | OTC/supplement/device catalog beyond RxNorm | Source and licensing unknown. | Product input on catalog scope (D-25). |
@@ -65,6 +65,9 @@ Legend — **Planned**: intended, not built. **Gated**: built only after the nam
 | DF-11 | In-app updater | Would add an allowlist entry; stores/installers cover updates. | B4-05 decision. |
 | DF-12 | Tablet-specific layouts beyond responsive scaling | Responsive layout suffices for MVP. | Usability findings. |
 | DF-13 | Linux support | Non-primary. | Explicit request (B4-06). |
+| DF-14 | Windows desktop release (build, installer, signing, store/direct distribution, evidence matrix) | Owner decision D-29 (2026-11-19): first release is mobile only; cost and focus; no Windows host exists; Windows scheduled reminders already NO-GO under the Tauri notification plugin. Owner: product owner. | Mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-WIN passes (or owner accepts no scheduled reminders on Windows) AND a Windows host and signing path are available. Tickets: DT-01, DT-04, DT-05. |
+| DF-15 | macOS desktop release (build, signing, notarization, distribution, evidence matrix). The macOS dev host remains in use as the iOS build/signing host and for fast tests; this deferral covers only a macOS app release. | Owner decision D-29: cost and focus; no desktop signing/notarization in the first release; macOS scheduled reminders already NO-GO under the Tauri notification plugin. Owner: product owner. | Mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-MAC passes (or owner accepts no scheduled reminders on macOS) AND Mac desktop signing/notarization is available. Tickets: DT-02, DT-04, DT-05. |
+| DF-16 | Desktop usability and parity work: desktop window layouts, keyboard-first navigation, desktop screen-reader audits (Windows screen reader, macOS VoiceOver), desktop reminders (supersedes DF-06 scope for release), desktop packaging smoke tests | Owner decision D-29; no desktop release. Code keeps building on the macOS dev host for iteration and tests only. | Same re-entry criterion as DF-14/DF-15. Tickets: DT-03, DT-06, DT-07. |
 
 ## 4. Decision register
 
@@ -77,7 +80,7 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 | D-03 | Time model: UTC microseconds + IANA zone + offset + original local text + tzdb version | Recommended | Hard | B0-04 vectors | B0-04, B1-04 |
 | D-04 | Phases 0–4 are the only delivery phases; PO prompt phases become workstreams WS-1…WS-9 (mapping table: [product-spec.md](product-spec.md#workstream-mapping)) | Decided (user) | Easy | — | all |
 | D-04a | Time engine: `jiff` 1.x with bundled tzdb, replacing the earlier `chrono-tz` suggestion. Reason: Phase 0 spike found `chrono-tz` 0.10.4 bundles tzdb 2025b, stale against IANA 2026f. Library decision from the spike, not a device claim; currency re-checked at pin time and tzdb version recorded per occurrence | Recommended (spike finding) | Moderate (engine swappable behind `time/`; stored tzdb versions are Hard) | B0-04 vectors | B0-04, B1-04 |
-| D-05 | Four primary targets; no platform first; release order from per-platform evidence | Decided (user) | Easy | Evidence matrices | B0-01, B0-08, B3-10 |
+| D-05 | Four primary targets; no platform first; release order from per-platform evidence. **Amended for the first release by D-29: mobile only (iOS + Android); Windows/macOS deferred.** | Decided (user) | Easy | Evidence matrices | B0-01, B0-08, B3-10 |
 | D-06 | Excluded: accounts, auth, subscriptions, sync, ads, analytics, clinical claims | Decided (user) | Easy to keep, costly to reverse | — | B1-01, B2-08, B2-12 |
 | D-07 | No mockup approval gate on Phase 1; stakeholder usability evidence is a Phase 3 gate | Decided (user) | Easy | GT-UX | B1-10, B3-02 |
 | D-08 | CI: target-neutral logic tests on cheapest runner each change; per-target builds on demand/pre-release; not a Linux gate | Recommended | Easy | Cost data after B3-08 | B1-01, B3-08 |
@@ -88,8 +91,8 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 | D-13 | Chart.js initially; inline SVG if touch/accessibility/bundle size poor | Recommended | Easy | B2-05 prototype | B2-05 |
 | D-14 | Geist-inspired design language; any Geist asset bundled locally after license check | Recommended | Easy | License verified at adoption | B1-07 |
 | D-15 | Baseline: OS device protection + sandbox, no SQLCipher; encrypted user backup | Prototype-dependent | Hard after release | B0-05 | B0-05, B2-09 |
-| D-16 | macOS host with iOS simulator is the day-to-day development convenience; confers no release priority | Recommended | Easy | — | B0-01 |
-| D-17 | Reminder scope per target (full / best-effort / in-app only) | Prototype-dependent | Easy | B0-02, B0-06, G0 | B0-08, B2-06 |
+| D-16 | macOS host with iOS simulator is the day-to-day development convenience and (per D-29) the iOS build/signing host; confers no desktop release priority | Recommended | Easy | — | B0-01 |
+| D-17 | Reminder scope per target (full / best-effort / in-app only); first release covers iOS and Android only (D-29) | Prototype-dependent | Easy | B0-02, B0-06, G0 | B0-08, B2-06 |
 | D-18 | Model policy: T1 = Haiku 5.5, T2 = Sonnet 5.5, T3 = Sonnet 5.5 with high reasoning (required for DST/time-zone, backup, security, architecture); author≠reviewer separation | Decided | Easy | — | all |
 | D-19 | Accent presets are Could and the first cut under schedule pressure | Recommended | Easy | — | B2-10 |
 | D-20 | Catalog source candidate: pinned RxNorm Current Prescribable Content release | Specialist review | Easy until bundled | GT-LIC | B0-03 |
@@ -101,10 +104,11 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 | D-26 | Linux is non-primary and gates nothing | Decided (user) | Easy | — | B4-06 |
 | D-27 | Web access only for reviewed features via an explicit runtime allowlist, currently empty; additions follow the PR-23 process; connectivity failure never blocks local logging | Decided (user) | Easy | B0-07, B2-12 | B0-07, B1-01, B2-12 |
 | D-28 | HealthKit and Android/Google health are optional, separately authorized feasibility work; they never block the MVP and an external platform's acceptance never proves a dose was taken | Decided (user) | Easy | B0-09 | B0-09, B4-07 |
+| D-29 | **First release is MOBILE ONLY (iOS + Android).** Windows and macOS desktop are DEFERRED, not removed: the code keeps building on the macOS dev host for fast iteration and tests, but there is no desktop release, no desktop signing/notarization, no Windows host, and no desktop usability/parity work in the release. This amends D-05 (four primary targets) and the original definition of done (four signed builds) for the first release. Rationale: cost and focus; Windows/macOS scheduled reminders were already NO-GO under the Tauri notification plugin. Re-entry: mobile G3 passed AND explicit owner request AND native desktop reminder spike REM-WIN/REM-MAC passes AND a Windows host plus Mac desktop signing are available. The macOS host remains the iOS build/signing host. Dated 2026-11-19. | Decided (owner decision) | Easy (nothing removed; deferred tickets DT-xx and DF-14..DF-16 are retained) | Re-entry criterion above | B0-01, B0-06, B3-05, B3-10, B4-01, DT-01..DT-07 |
 
 ### Open questions needing the product owner
 
-1. Who provides, and when, the physical iOS and Android devices, a Windows host, a macOS host, and the developer-program/signing accounts for each store? (Without them GT-DEV-* and GT-SIGN/GT-STORE stay NOT PASSED.)
+1. Who provides, and when, the physical iOS and Android devices, the Android SDK/NDK toolchain, and the Apple Developer and Google Play accounts? (Without them GT-DEV-IOS/AND and GT-SIGN/GT-STORE stay NOT PASSED.) Windows host and Mac desktop signing are deferred (D-29).
 2. Who are the stakeholder participants for GT-UX and what counts as "unaided success" for a non-technical user?
 3. What reminder timing tolerance is acceptable, and should reminders be omitted on targets that fail their spike?
 4. Is a U.S. prescription-focused catalog acceptable for the first release (D-25)?
@@ -113,25 +117,25 @@ Types: **Decided** (made by the user or by reconciliation), **Recommended** (age
 
 ## 5. Gate register
 
-All gates are **NOT PASSED — evidence-dependent** at baseline. A gate flips to Passed only when a reviewer (not the author) links an artifact in `docs/evidence/`.
+All gates are **NOT PASSED — evidence-dependent** at baseline, except GT-DEV-WIN and GT-DEV-MAC, which are **DEFERRED by owner decision D-29** (they are not passed and not waived; they re-open on the desktop re-entry criterion). For the first release, G3 and G4 are evaluated on iOS and Android only. A gate flips to Passed only when a reviewer (not the author) links an artifact in `docs/evidence/`.
 
 | Gate | Meaning | Evidence required | Owner | Tickets |
 |---|---|---|---|---|
 | G0 | Phase 0 exit: per-platform reminder scope, catalog status, privacy stance accepted | B0-08 synthesis + product-owner acceptance | Product owner | B0-08 |
-| G1 | Phase 1 exit: core loop passes automated tests on every target with a build | B1-01…B1-09 test logs + RV records | Product owner | B1-09 |
+| G1 | Phase 1 exit: core loop passes automated tests on every in-scope target with a build (macOS dev host, iOS, Android; desktop is deferred, D-29) | B1-01…B1-09 test logs + RV records | Product owner | B1-09 |
 | G2 | Phase 2 exit: MVP requirement tests and reviews | B2 test logs + RV records | Product owner | B2-12 |
-| G3 | Per-target release readiness | Complete matrix in [release-evidence.md](release-evidence.md) | Product owner | B3-10 |
-| G4 | Every primary target at G3 or accepted exception | Matrix + decision | Product owner | B4-01 |
+| G3 | Per-target release readiness for iOS and Android (Windows/macOS deferred, D-29) | Complete iOS and Android matrices in [release-evidence.md](release-evidence.md) | Product owner | B3-10 |
+| G4 | Every in-scope (mobile) target at G3 or accepted exception | Matrix + decision | Product owner | B4-01 |
 | GT-DEV-IOS | Physical iPhone/iPad run of notification, install, accessibility scenarios | Evidence tables from a real device (simulator never counts) | H | B0-02, B3-01 |
 | GT-DEV-AND | Physical Android run including Doze, exact-alarm, reboot | Evidence tables from a real device (emulator never counts) | H | B0-02, B3-01 |
-| GT-DEV-WIN | Real Windows host install and scenarios | Evidence from a real host; VM recorded as VM | H | B0-01, B0-06 |
-| GT-DEV-MAC | Real Mac install and scenarios | Evidence from a real host | H | B0-01, B0-06 |
+| GT-DEV-WIN | **DEFERRED (D-29, DF-14).** Real Windows host install and scenarios | Evidence from a real host; VM recorded as VM. Not required for the first release | H | DT-01, DT-06 |
+| GT-DEV-MAC | **DEFERRED (D-29, DF-15).** Real Mac desktop-app install and scenarios | Evidence from a real host. Not required for the first release | H | DT-02, DT-06 |
 | GT-LIC | Catalog redistribution approved (spec §6 checklist) | Written release-specific approval by a named human | H specialist | B0-03 |
 | GT-UX | Non-technical users complete the core loop unaided | Session records vs. pre-approved threshold | H | B1-10, B3-02 |
-| GT-A11Y | WCAG 2.2 AA verified per target with assistive technology | Audit reports per target | H + T2 | B3-01 |
+| GT-A11Y | WCAG 2.2 AA verified per mobile target (VoiceOver, TalkBack) with assistive technology | Audit reports per target | H + T2 | B3-01 |
 | GT-NET | Zero outbound connections per target; empty allowlist holds | Egress captures per target | T2 + reviewer | B0-07, B2-12 |
 | GT-REC | Upgrade, failed-migration recovery, restore, wipe per target | Test logs per target | T2 + reviewer | B3-07 |
-| GT-SIGN | Signed installable artifact per target; costs/renewal/ownership documented | Signed artifact install record | H | B3-05 |
+| GT-SIGN | Signed installable artifact per in-scope (mobile) target; costs/renewal/ownership documented | Signed artifact install record | H | B3-05 |
 | GT-STORE | Distribution channel and disclosures accepted per target | Submission/beta records | H | B3-06 |
 | GT-LEGAL | Intended-use, privacy, disclosure, attribution review | Written specialist review | H specialist | B3-09 |
 | GT-HEALTH | Optional health-platform go/no-go (non-blocking; blocks only a health feature, never the MVP) | Written go/no-go per platform; device runs marked not run until performed | H + T3 | B0-09, B4-07 |

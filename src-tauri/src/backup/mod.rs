@@ -26,12 +26,11 @@
 //!   containing folder is fsynced (Unix), so a power cut cannot leave a "restored" database that is
 //!   only in the page cache. Created files are owner-only (0600) on Unix.
 //! * **No key escrow.** The passphrase is never stored or sent anywhere. Forgotten means unrecoverable.
-//! * **Where the file goes.** No file-dialog plugin: it would add a dependency and capability
-//!   permissions to an app whose capability set is deliberately `core:default` with an empty network
-//!   allowlist. Instead backups are written to a folder the user can open in their file manager
-//!   (the Documents folder where the OS has one, otherwise the app's data folder), the full path is
-//!   returned and shown, and restore offers the files found there plus a typed path for a backup
-//!   copied from elsewhere. A native picker can replace this later without touching this module.
+//! * **Where the file goes.** Backups are created in the app's own folder (owner-only), verified
+//!   there, and the path is returned. Getting a copy OUT of the app (system save screen) and a file
+//!   back IN (system picker, copied into app-private staging first) is `crate::transfer`; restore
+//!   itself is unchanged and only ever reads an app-private file. See that module for which parts of
+//!   the mobile behavior are documented and which are unverified on a device.
 
 pub mod commands;
 pub mod format;

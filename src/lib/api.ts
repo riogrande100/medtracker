@@ -248,6 +248,21 @@ export interface RestoreResult {
   safety_copy_kept: boolean;
 }
 
+export interface SaveCopyResult {
+  /** False when the system save screen was closed (or could not open): nothing was saved. */
+  saved: boolean;
+  bytes: number;
+}
+
+/** A file the user chose with the system picker, already copied into app-private staging. */
+export interface PickedBackup {
+  /** Path of the private copy; pass it to restoreBackup. */
+  path: string;
+  /** The chosen file's name when the system provides one (it does not on Android). */
+  name: string | null;
+  size_bytes: number;
+}
+
 export type AppErrorKind =
   | "validation"
   | "not_found"
@@ -307,16 +322,23 @@ export const api = {
   previewSchedule: (input: ScheduleInput) => invoke<PreviewOccurrence[]>("preview_schedule", { input }),
   /** The next occurrence that hasn't been recorded, which may be on a later day. */
   nextDue: () => invoke<NextDue | null>("next_due"),
-  /** The folder backups are saved to and the backups found there. Nothing is opened. */
+  /** The app's private backup folder and the backups kept there. Nothing is opened. */
   backupFolder: () => invoke<BackupFolder>("backup_folder"),
   /** Encrypts a consistent snapshot with the passphrase. The passphrase is never stored; it cannot be recovered. */
   createBackup: (passphrase: string) => invoke<BackupCreated>("create_backup", { passphrase }),
-  /** Verifies the file in a staging copy first; the current data is replaced only if everything checks out. */
+  /** Verifies the file in a staging copy first; the current data is replaced only if everything checks out.
+   *  `path` must be a kept backup or the copy returned by pickBackupFile. */
   restoreBackup: (path: string, passphrase: string) => invoke<RestoreResult>("restore_backup", { path, passphrase }),
   /** Descriptive counts for an inclusive local date range. */
   reportRange: (from: string, to: string) => invoke<Report>("report_range", { from, to }),
-  /** Writes a plain CSV/JSON file to the Downloads folder (or Documents / app folder) and says where. */
+  /** Writes a plain CSV/JSON file inside the app's private folder and says where. Use saveCopy to get it out. */
   exportLedger: (input: ExportOptions) => invoke<ExportResult>("export_ledger", { input }),
+  /** Opens the system save screen for one of the app's own backup/export files and copies it to the place chosen. */
+  saveCopy: (path: string) => invoke<SaveCopyResult>("save_copy", { path }),
+  /** Opens the system file picker and copies the chosen file into private staging. null = nothing chosen. */
+  pickBackupFile: () => invoke<PickedBackup | null>("pick_backup_file"),
+  /** Deletes the staged copy of a picked file. */
+  discardStagedBackup: () => invoke<void>("discard_staged_backup"),
 };
 
 export type Api = typeof api;
