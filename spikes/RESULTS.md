@@ -16,7 +16,7 @@ Legend: DOC = documented/source-read only; HOST = host test only; PENDING = no e
 |---|---|---|---|---|
 | Scheduled reminders | DOC: plugin maps `at` to elapsed-time trigger, `interval` to calendar trigger; PENDING device | DOC: AlarmManager, inexact fallback without exact-alarm access; boot reschedule; PENDING device | DOC: plugin is immediate-only; native scheduled toast has 5-min window; PENDING | DOC: plugin immediate-only; native scheduling not researched; PENDING |
 | Time zone (device zone + change events) | HOST model only; PENDING device | HOST model only; PENDING device (2 phones) | HOST model only; Windows-to-IANA mapping PENDING | HOST: zone resolved on this Mac, not recorded as acceptance; PENDING |
-| Health import | DOC: dose events iOS 26+, denied indistinguishable from empty; third-party write unverified; PENDING | DOC: no dose type in Health Connect; Medical Records experimental; PENDING | n/a | n/a |
+| Health import | DOC: dose events iOS 26+, denied indistinguishable from empty. SIM (iPhone 17, iOS 27.2 simulator, 2026-11-18; not device evidence): per-object medication sheet, medication list read and dose-event read (fake data) observed; third-party dose write refused by the OS (uncaught exception); denial indistinguishable from empty; revoke/locked/background-delivery not run. Physical device HLT-IOS-01..04 PENDING; see healthkit-ios/evidence/sim-results.json | DOC: no dose type in Health Connect; Medical Records experimental; PENDING | n/a | n/a |
 
 ## Recommendations
 | Area | Recommendation | Re-entry criteria |
@@ -27,7 +27,8 @@ Legend: DOC = documented/source-read only; HOST = host test only; PENDING = no e
 | macOS reminders via Tauri plugin (DEFERRED, D-29) | **NO-GO** (docs: immediate-only) | Native scheduling spike passes REM-MAC-02..06 |
 | `device_local` schedule mode | **DEFER** | TZD-* and TZE-* PASS per platform; otherwise ship `home_zone` and `elapsed_interval` only |
 | Time-zone engine | **Do not pin chrono-tz 0.10.4 as-is** (2025b, stale; confirmed by host tests). Prefer a current tzdb (jiff 2026f) or updated chrono-tz | Re-test with chosen engine; record tzdb version per occurrence; `tz_report --strict` exits 0 |
-| HealthKit / Health Connect import | **NO-GO for MVP** (no automatic import per spec) | A product requirement plus HLT-* PASS; imports only as unverified external claims, never creating or changing a dose |
+| HealthKit (iOS) medication import (B0-09 spike, simulator only) | **DEFER** (stays out of MVP; no automatic import per spec). Read of medication names and dose events works on the simulator; write is impossible; no PASS for any HLT-IOS scenario because those need a physical iPhone | Physical-iPhone HLT-IOS-01..04 PASS, product requirement, RV-SEC; import copies medication names only, user-confirmed, never creates or changes ledger doses |
+| Health Connect import | **NO-GO for MVP** (no automatic import per spec) | A product requirement plus HLT-* PASS; imports only as unverified external claims, never creating or changing a dose |
 | Google Fit / Google Health API | **NO-GO** (accounts + network conflict with constraints) | Product constraint change |
 
 Host tests did not contradict any recommendation carried over from HANDOFF.md. They strengthen the tz-engine one.

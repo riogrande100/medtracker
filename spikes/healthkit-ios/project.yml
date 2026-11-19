@@ -1,0 +1,23 @@
+name: HKSpike
+options:
+  bundleIdPrefix: spike.medtracker
+  deploymentTarget:
+    iOS: "26.0"
+targets:
+  HKSpike:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: spike.medtracker.hkspike
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Throwaway spike: reads medication names and dose events to test feasibility. Nothing leaves the device."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Throwaway spike: attempts one write of a fake dose event to record the OS result."
+        CODE_SIGN_ENTITLEMENTS: HKSpike.entitlements
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGNING_REQUIRED: NO
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: minimal
