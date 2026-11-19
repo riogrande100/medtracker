@@ -26,6 +26,32 @@ body {
   @apply bg-neutral-50 text-neutral-900 font-sans antialiased;
 }
 
+/*
+ * Dialogs (Modal in components/ui.tsx). The panel is capped to the visual viewport, which
+ * src/lib/visualViewport.ts keeps in --vv-top / --vv-height, so an open on-screen keyboard
+ * shrinks the dialog instead of covering its footer. dvh/vh are fallbacks.
+ */
+.dialog-content {
+  top: calc(var(--vv-top, 0px) + max(1.5rem, env(safe-area-inset-top)));
+  max-height: 90vh;
+  max-height: calc(var(--vv-height, 100dvh) - 3rem);
+}
+
+/* Every text-like field and select fills the dialog width and never pushes past it (iOS intrinsic widths). */
+.dialog-content :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Time and date controls: fixed 48px touch height, no native iOS sizing. */
+.dialog-content :is(input[type="time"], input[type="date"], input[type="datetime-local"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 48px;
+}
+
 :focus-visible {
   @apply outline-2 outline-offset-2 outline-brand;
 }

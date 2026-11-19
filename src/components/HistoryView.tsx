@@ -29,7 +29,19 @@ function CorrectDialog({ api, entry, onClose, onSaved }: { api: Api; entry: Hist
   }
 
   return (
-    <Modal open onOpenChange={(o) => !o && onClose()} title="Correct entry" description="The original entry stays visible in the change history.">
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title="Correct entry"
+      description="The original entry stays visible in the change history."
+      onSubmit={save}
+      footer={
+        <>
+          <Button type="submit" variant="primary" className="flex-1">Save correction</Button>
+          <Button className="flex-1" onClick={onClose}>Cancel</Button>
+        </>
+      }
+    >
       <div className="space-y-3">
         <Field label="What happened">
           <select className={inputClass} value={kind} onChange={(e) => setKind(e.target.value as DoseKind)}>
@@ -44,10 +56,6 @@ function CorrectDialog({ api, entry, onClose, onSaved }: { api: Api; entry: Hist
           <input className={inputClass} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {error && <p role="alert" className="text-red-800">{error}</p>}
-        <div className="flex gap-2">
-          <Button variant="primary" className="flex-1" onClick={save}>Save correction</Button>
-          <Button className="flex-1" onClick={onClose}>Cancel</Button>
-        </div>
       </div>
     </Modal>
   );

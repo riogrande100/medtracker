@@ -82,6 +82,13 @@ export function ScheduleDialog({ api, med, onClose, onSaved }: { api: Api; med: 
       onOpenChange={(o) => !o && onClose()}
       title={editing ? `Edit schedule: ${med.name}` : `Add schedule: ${med.name}`}
       description={editing ? "Changes apply from now on. Doses you already recorded, and History, are not changed." : "Choose when this medication shows up on Today."}
+      onSubmit={save}
+      footer={
+        <>
+          <Button type="submit" variant="primary" className="flex-1">Save schedule</Button>
+          <Button className="flex-1" onClick={onClose}>Cancel</Button>
+        </>
+      }
     >
       <div className="space-y-4">
         <fieldset className="space-y-1">
@@ -102,7 +109,7 @@ export function ScheduleDialog({ api, med, onClose, onSaved }: { api: Api; med: 
               <p className="text-sm font-medium text-neutral-800">Times of day</p>
               {times.map((t, i) => (
                 <div key={i} className="flex gap-2">
-                  <input className={inputClass} type="time" aria-label={`Time ${i + 1}`} value={t} onChange={(e) => setTimes((cur) => cur.map((x, j) => (j === i ? e.target.value : x)))} />
+                  <input className={`${inputClass} flex-1`} type="time" aria-label={`Time ${i + 1}`} value={t} onChange={(e) => setTimes((cur) => cur.map((x, j) => (j === i ? e.target.value : x)))} />
                   <Button disabled={times.length === 1} aria-label={`Remove time ${i + 1}`} onClick={() => setTimes((cur) => cur.filter((_, j) => j !== i))}>
                     Remove
                   </Button>
@@ -158,10 +165,6 @@ export function ScheduleDialog({ api, med, onClose, onSaved }: { api: Api; med: 
         </div>
 
         {error && <p role="alert" className="text-red-800">{error}</p>}
-        <div className="flex gap-2">
-          <Button variant="primary" className="flex-1" onClick={save}>Save schedule</Button>
-          <Button className="flex-1" onClick={onClose}>Cancel</Button>
-        </div>
       </div>
     </Modal>
   );

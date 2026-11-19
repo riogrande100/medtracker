@@ -26,7 +26,19 @@ function AddDialog({ api, open, onOpenChange, onSaved }: { api: Api; open: boole
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Add medication" description="Type it in yourself. Everything stays on this device.">
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Add medication"
+      description="Type it in yourself. Everything stays on this device."
+      onSubmit={save}
+      footer={
+        <>
+          <Button type="submit" variant="primary" className="flex-1">Save</Button>
+          <Button className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
+        </>
+      }
+    >
       <div className="space-y-3">
         <Field label="Name"><input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Strength (optional, e.g. 500 mg)"><input className={inputClass} value={strength} onChange={(e) => setStrength(e.target.value)} /></Field>
@@ -37,10 +49,6 @@ function AddDialog({ api, open, onOpenChange, onSaved }: { api: Api; open: boole
         </label>
         {daily && <Field label="Time of day"><input className={inputClass} type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>}
         {error && <p role="alert" className="text-red-800">{error}</p>}
-        <div className="flex gap-2">
-          <Button variant="primary" className="flex-1" onClick={save}>Save</Button>
-          <Button className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
-        </div>
       </div>
     </Modal>
   );
