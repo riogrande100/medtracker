@@ -21,7 +21,7 @@ This section overrides any conflicting text in this document, `start-prompt.md`,
 8. **UI:** Geist-inspired visual language with locally bundled fonts and assets (PR-17, D-14).
 9. **No mockup-approval gate blocks Phase 1 engineering.** Design review runs in parallel; stakeholder usability evidence is a Phase 3 release gate, not a Phase 1 start condition.
 10. **Phases 0–4 are the only delivery phases.** The nine "Phase 1–9" headings formerly in `product-owner-prompt.md` are re-expressed as workstreams WS-1–WS-9 mapped onto Phases 0–4 ([Workstream mapping](#workstream-mapping)).
-11. **Medication-entry speed-up (D-30, 2026-11-19):** the preferred route is a bundled offline medication catalog with search-as-you-type (B2-01, B2-02), the next planned Phase 2 work. It stays gated by GT-LIC (PR-25) and the U.S. prescription scope (D-25); manual entry always remains available; catalog data never proves or changes a dose.
+11. **Medication-entry speed-up (D-30, 2026-11-19):** the preferred route is a bundled offline medication catalog with search-as-you-type (B2-01, B2-02), the next planned Phase 2 work. It stays gated by GT-LIC (PR-25) and the U.S. prescription scope (D-25) and U.S.-only first release (D-31); manual entry always remains available; catalog data never proves or changes a dose.
 11. **Model policy:** Haiku 5.5 for mechanical/documentation work, Sonnet 5.5 for standard implementation, and Sonnet 5.5 with high reasoning for DST/time-zone, backup, security, and architecture work (governance rule in [backlog.md](backlog.md#governance-rules)).
 12. **Gates that depend on physical devices, stakeholder usability, licensing, signing, or stores are _NOT PASSED — evidence-dependent_** until an evidence artifact exists. Nothing in this repository currently constitutes such evidence.
 
@@ -40,7 +40,7 @@ The local SQLite ledger is the source of truth for what the user recorded; the s
 
 Adopt immutable schedule versions and persisted occurrence snapshots. Store UTC instants, IANA zone identifiers, original local wall time, original offset, entry time, schedule-version reference, and time-zone-database version. Keep corrections understandable through a compact revision history rather than full event sourcing. Show history in original, current-device, or selected reporting-zone time without rewriting stored facts.
 
-For the catalog, investigate the current RxNorm Current Prescribable Content monthly release first. NLM lists it as downloadable without a UMLS license, while the full release requires one; however, NLM's broader redistribution terms and the source-vocabulary restrictions still require a release-specific review before bundling. RxTerms is not a verified dependency for the MVP: its current downloadable format and redistribution terms were not established from the current NLM release pages. Do not ship a catalog until provenance and redistribution are approved; this is the **catalog licensing gate (GT-LIC, NOT PASSED — evidence-dependent)** defined in §6. Manual entry is a complete fallback and Phase 1 does not depend on the catalog.[^rxnorm-files][^rxnorm-terms][^umls-license]
+For the catalog, investigate the current RxNorm Current Prescribable Content monthly release first. NLM lists it as downloadable without a UMLS license, while the full release requires one; however, NLM's broader redistribution terms and the source-vocabulary restrictions still require a release-specific review before bundling. RxTerms is the recommended display/search source for the MVP per the 2026-11-19 catalog spike ([spikes/catalog/FINDINGS.md](../spikes/catalog/FINDINGS.md)), but its redistribution terms are not yet verified from a primary NLM statement. Do not ship a catalog until provenance and redistribution are approved; this is the **catalog licensing gate (GT-LIC, NOT PASSED — evidence-dependent)** defined in §6. Manual entry is a complete fallback and Phase 1 does not depend on the catalog.[^rxnorm-files][^rxnorm-terms][^umls-license]
 
 The highest risks are:
 
@@ -374,7 +374,7 @@ No catalog file, fixture derived from real RxNorm rows, or catalog-derived searc
 4. Required attribution and "currentness" language drafted and placed in the app's About screen and release notices.
 5. Update policy stated: catalog changes only via app releases (no runtime download).
 
-Until GT-LIC passes: the pipeline (B2-01) is built and tested only on **synthetic** fixtures; the catalog search UI is behind a build flag and absent from distributed builds; manual entry is the only add path in any release. RxTerms is not a dependency (its availability and terms were not established).
+Until GT-LIC passes: the pipeline (B2-01) is built and tested only on **synthetic** fixtures; the catalog search UI is behind a build flag and absent from distributed builds; manual entry is the only add path in any release. RxTerms is the recommended source, not yet a dependency: its redistribution terms are unverified and the 10-item checklist in the catalog spike (§5) is not passed.
 
 ### Network allowlist (runtime) — currently empty
 
@@ -712,7 +712,7 @@ The full decision register (with IDs D-01…, reversibility, owner, and linked t
 1. Who owns, and when can we supply, the evidence-dependent resources: physical iOS and Android devices, the Android SDK/NDK toolchain, the macOS build host, and Apple Developer / Google Play accounts? (A Windows machine and desktop signing are deferred, D-29.) Without them the corresponding gates stay NOT PASSED.
 2. Who are the stakeholder participants for the usability gate (GT-UX), and what counts as success for "non-technical user unaided"?
 3. What reminder timing tolerance is acceptable, and should reminders be excluded entirely on targets that cannot pass the feasibility gate?
-4. Is a U.S. prescription-focused catalog acceptable, or must the first release cover OTC/supplement/device entries that may require another source or manual records?
+4. Closed for the U.S. part by D-31 (2026-11-19): the first release is U.S.-only with a prescription-focused MVP catalog. OTC, vitamin and supplement entries rely on manual entry; supplements remain open (DF-09).
 5. Closed by D-30: health-platform integration is not pursued (standalone app).
 6. Must the live database itself be encrypted against offline file theft, or is OS device protection plus user-encrypted backups an acceptable MVP boundary?
 

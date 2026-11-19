@@ -155,6 +155,9 @@ Each ticket lists: **Phase · Priority (Must/Should/Could) · Effort (S/M/L/XL) 
 **Phase 0 · Must · L · PR-02, PR-18, PR-25** · **Owner:** T2 research draft; **H** legal/source-owner decision · **Depends on:** none
 **Files:** `docs/evidence/B0-03/**`
 - **Acceptance:** release-specific written decision per the GT-LIC checklist (spec §6): exact source/release/checksum, field and term-type whitelist, derived-output redistribution position, attribution/currentness text, update policy; RxTerms availability confirmed or excluded; **or** an explicit "blocked" decision keeping manual entry only. The agent draft is input to the human decision and is not itself approval.
+- **Spike result (2026-11-19, research only; GT-LIC NOT PASSED):** [spikes/catalog/FINDINGS.md](../spikes/catalog/FINDINGS.md). Recommended MVP source: **RxTerms (monthly)** for search and display, with **NLM RxNorm Current Prescribable Content** as the provenance baseline and RXCUI cross-check. Excluded: full RxNorm (UMLS license), RxClass/SNOMED, NDC package rows, DailyMed label text, NLM logo. RxTerms redistribution terms are UNVERIFIED on the primary page. OTC, vitamins and supplements are not covered (RxNorm excludes dietary supplements); NIH DSLD is post-MVP with UNVERIFIED terms (D-31, DF-09).
+- **Required acknowledgment (quoted from FINDINGS §2):** "This product uses publicly available data courtesy of the U.S. National Library of Medicine (NLM)", and "NLM is not responsible for the product and does not endorse or recommend this or any other product." No NLM name or logo as branding. Release currentness notice: "catalog release YYYY-MM".
+- **Open legal questions (owner: owner/legal review; not agent decisions):** (1) Does any NLM term restrict repackaging into a "derived, searchable" proprietary file or a paid app-store app? (2) Is "acknowledgment to NLM" satisfied by an About screen alone? (3) RxTerms: governing terms and possible registration; is attribution wording #1 or #7? (4) Third-party rights in MTHSPL/SPL-derived names. (5) Brand trademark use (nominative). (6) Foreign-store or regional availability (U.S.-only distribution under D-31).
 - **Tests:** checklist completeness review; no real catalog rows committed.
 - **Review:** RV-HUMAN (**GT-LIC**), RV-DOC.
 
@@ -301,9 +304,18 @@ Four independent-review findings against the slice are being fixed and are folde
 
 ### B2-02 — Catalog bundle and search-as-you-type UI (GT-LIC-gated; NEXT PLANNED, D-30)
 **Phase 2 · Should (next planned work, D-30) · M · PR-02, PR-25** · **Owner:** T2 · **Depends on:** B2-01, B1-03, **GT-LIC passed**
-- **Acceptance:** search-as-you-type from the locally bundled list (name/ingredient/strength/form) with no network, and manual entry always remains available; selection creates a snapshot; "no longer current" note for retired entries; attribution/currentness text in About; without GT-LIC the feature is flag-off and absent from distributed builds.
-- **Tests:** search latency measured on the real file; snapshot unchanged after catalog swap; build-flag test.
-- **Review:** RV-CODE, RV-HUMAN (licensing artifacts).
+- **Acceptance:**
+  1. Offline search-as-you-type over the locally bundled U.S. catalog (SQLite FTS5, prefix matching per typed token); no network call (PR-23, empty allowlist).
+  2. Matches brand and generic names; each row shows display name, strength and dose form (route where present).
+  3. A persistent **"not listed - enter it myself"** row falls back to manual entry; manual entry always remains available.
+  4. Selection creates an immutable medication snapshot; snapshot is unchanged after a catalog swap.
+  5. "No longer current" note for retired entries.
+  6. About screen carries the NLM attribution and no-endorsement text (see B0-03); catalog version/release is shown in Settings.
+  7. No clinical claims in catalog UI copy (no dose, interaction, suitability or recommendation wording); strength is product strength only, never used to compute doses.
+  8. OTC, vitamins and supplements are not in the MVP catalog (D-31); the empty-result path points to manual entry.
+  9. Without GT-LIC passed the feature is flag-off and absent from distributed builds. GT-LIC checklist: 10 items in [spikes/catalog/FINDINGS.md](../spikes/catalog/FINDINGS.md) §5; **none passed**.
+- **Tests:** search latency measured on the real file; snapshot unchanged after catalog swap; build-flag test; golden searches (repatha, metformin, vitamin d, tylenol, lisinopril) on the approved release; no-network test.
+- **Review:** RV-CODE, RV-HUMAN (licensing artifacts, owner/legal review).
 
 ### B2-03 — Schedule versioning, elapsed interval, reconciliation
 **Phase 2 · Must · XL · PR-03, PR-07, PR-08** · **Owner:** T3 design + RV-TIME; T2 implements · **Depends on:** B1-04, B1-05, B0-04
