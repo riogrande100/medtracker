@@ -11,7 +11,9 @@ import {
 } from "../lib/uiPrefs";
 
 const option =
-  "flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-neutral-400 bg-white px-3 text-base has-[:checked]:border-brand has-[:checked]:bg-brand-soft";
+  "flex min-h-12 min-w-0 cursor-pointer items-center gap-3 rounded-lg border border-neutral-400 bg-white px-3 text-base has-[:checked]:border-brand has-[:checked]:bg-brand-soft";
+/** Labels may wrap inside their card instead of pushing past its edge. */
+const label = "min-w-0 flex-1 break-words";
 const radio = "h-5 w-5 shrink-0 accent-brand";
 
 const MOTION: { value: MotionPref; label: string }[] = [
@@ -48,7 +50,11 @@ export function SettingsView({
         <p className="text-sm text-neutral-700">
           Sets the main buttons, focus outlines, selected choices and success messages. Cancel and Delete keep their own styling.
         </p>
-        <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
+        {/* Extra large text always gets one column, so each name has the full card width. */}
+        <div
+          data-testid="accent-grid"
+          className={`grid grid-cols-1 gap-2 ${prefs.textSize === "xlarge" ? "" : "min-[400px]:grid-cols-2"}`}
+        >
           {ACCENT_ORDER.map((key: Accent) => (
             <label key={key} className={option}>
               <input
@@ -60,7 +66,7 @@ export function SettingsView({
                 className={radio}
               />
               <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-neutral-400" style={{ backgroundColor: ACCENTS[key].base }} />
-              <span>{ACCENTS[key].label}</span>
+              <span className={label}>{ACCENTS[key].label}</span>
             </label>
           ))}
         </div>

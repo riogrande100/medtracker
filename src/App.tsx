@@ -7,9 +7,11 @@ import { MedicationsView } from "./components/MedicationsView";
 import { MoreView } from "./components/MoreView";
 import { TodayView } from "./components/TodayView";
 
-// min-h-12 (48px) keeps every tab target above the 44px minimum; text-sm and px-1 let four tabs fit at 375px.
+// min-h-12 (48px) keeps every tab target above the 44px minimum. Four equal columns (grid-cols-4 is minmax(0, 1fr)).
+// At the Extra large root size a label can be wider than its column, so labels may wrap onto two lines and hyphenate
+// (lang="en" is set in index.html), and as a last resort break inside a word. Nothing overlaps the neighbouring tab.
 const tab =
-  "min-h-12 min-w-0 cursor-pointer px-1 text-sm font-medium text-neutral-700 data-[state=active]:border-b-4 data-[state=active]:border-brand data-[state=active]:text-neutral-900";
+  "min-h-12 min-w-0 cursor-pointer px-0.5 py-1 text-center text-sm leading-tight font-medium break-words hyphens-auto text-neutral-700 data-[state=active]:border-b-4 data-[state=active]:border-brand data-[state=active]:text-neutral-900";
 
 /**
  * Shown when the data file could not be opened safely (newer version, corrupt, failed upgrade).

@@ -14,20 +14,34 @@ function defaultRange(): [string, string] {
   return [iso(from), iso(to)];
 }
 
+/** Date controls share the text-field width rules, plus appearance none (iOS). */
+const dateClass = `${inputClass} appearance-none`;
+
 const th = "border-b border-neutral-300 px-2 py-2 text-left text-sm font-semibold";
 const td = "border-b border-neutral-200 px-2 py-3 align-top";
+
+/** One label per count, in the same order as the values from countValues(). Shared by the table and the cards. */
+const COUNT_LABELS = [
+  "Scheduled",
+  "Taken",
+  "Skipped",
+  "Earlier, not logged",
+  "Later, not yet logged",
+  "Conflicting",
+  "Unscheduled entries",
+] as const;
+
+function countValues(c: ReportCounts): number[] {
+  return [c.occurrences, c.taken, c.skipped, c.not_logged, c.pending, c.conflicts, c.unscheduled_taken + c.unscheduled_skipped];
+}
 
 /** Same columns for every table, so each row reads the same way. */
 function CountCells({ c }: { c: ReportCounts }) {
   return (
     <>
-      <td className={td}>{c.occurrences}</td>
-      <td className={td}>{c.taken}</td>
-      <td className={td}>{c.skipped}</td>
-      <td className={td}>{c.not_logged}</td>
-      <td className={td}>{c.pending}</td>
-      <td className={td}>{c.conflicts}</td>
-      <td className={td}>{c.unscheduled_taken + c.unscheduled_skipped}</td>
+      {countValues(c).map((v, i) => (
+        <td key={COUNT_LABELS[i]} className={td}>{v}</td>
+      ))}
     </>
   );
 }
@@ -37,15 +51,73 @@ function Head({ first }: { first: string }) {
     <thead>
       <tr>
         <th scope="col" className={th}>{first}</th>
-        <th scope="col" className={th}>Scheduled</th>
-        <th scope="col" className={th}>Taken</th>
-        <th scope="col" className={th}>Skipped</th>
-        <th scope="col" className={th}>Earlier, not logged</th>
-        <th scope="col" className={th}>Later, not yet logged</th>
-        <th scope="col" className={th}>Conflicting</th>
-        <th scope="col" className={th}>Unscheduled entries</th>
+        {COUNT_LABELS.map((label) => (
+          <th key={label} scope="col" className={th}>{label}</th>
+        ))}
       </tr>
     </thead>
+  );
+}
+
+type Row = { key: string; label: string; counts: ReportCounts };
+
+/**
+ * One report section. Below 640px it renders a card per row (heading + definition list); from 640px up it renders
+ * the captioned table. Both are in the DOM; the CSS classes pick which one is shown, so only one is in the
+ * accessibility tree at a time.
+ */
+function CountSection({
+  caption,
+  first,
+  rows,
+  empty,
+}: {
+  caption: string;
+  first: string;
+  rows: Row[];
+  empty: string;
+}) {
+  return (
+    <section aria-label={caption} className="space-y-2">
+      <h3 className="text-lg font-semibold sm:hidden">{caption}</h3>
+
+      <div className="hidden overflow-x-auto sm:block" data-layout="table">
+        <table className="w-full min-w-max text-base">
+          <caption className="pb-2 text-left text-lg font-semibold">{caption}</caption>
+          <Head first={first} />
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={COUNT_LABELS.length + 1} className={td}>{empty}</td></tr>
+            )}
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <th scope="row" className={`${td} text-left font-medium`}>{r.label}</th>
+                <CountCells c={r.counts} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="sm:hidden" data-layout="cards">
+        {rows.length === 0 && <p className="text-base">{empty}</p>}
+        <ul className="m-0 list-none space-y-3 p-0">
+          {rows.map((r) => (
+            <li key={r.key} className="min-w-0 rounded-lg border border-neutral-300 bg-white p-3">
+              <h4 className="break-words text-base font-semibold">{r.label}</h4>
+              <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-sm">
+                {countValues(r.counts).map((v, i) => (
+                  <div key={COUNT_LABELS[i]} className="contents">
+                    <dt className="min-w-0 break-words text-neutral-800">{COUNT_LABELS[i]}</dt>
+                    <dd className="m-0 text-right font-medium tabular-nums">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 
@@ -87,12 +159,13 @@ export function ReportsView({ api, version }: { api: Api; version: number }) {
       <h2 id="reports-h" className="text-xl font-semibold">Reports</h2>
       <p className="text-sm text-neutral-700">Plain counts of what you recorded. They are not a score and say nothing about whether any dose was needed or right.</p>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* One column on phones; two side by side once there is room for both dates. */}
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 [&>*]:min-w-0">
         <Field label="From">
-          <input className={inputClass} type="date" value={from} max={to} onChange={(e) => e.target.value && setRange([e.target.value, to])} />
+          <input className={dateClass} type="date" value={from} max={to} onChange={(e) => e.target.value && setRange([e.target.value, to])} />
         </Field>
         <Field label="To">
-          <input className={inputClass} type="date" value={to} min={from} onChange={(e) => e.target.value && setRange([from, e.target.value])} />
+          <input className={dateClass} type="date" value={to} min={from} onChange={(e) => e.target.value && setRange([from, e.target.value])} />
         </Field>
       </div>
 
@@ -105,54 +178,26 @@ export function ReportsView({ api, version }: { api: Api; version: number }) {
             {report.reporting_zone ? ` Device time zone: ${report.reporting_zone}.` : ""}
           </p>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-base">
-              <caption className="pb-2 text-left text-lg font-semibold">Totals for the range</caption>
-              <Head first="Range" />
-              <tbody>
-                <tr>
-                  <th scope="row" className={`${td} text-left font-medium`}>All medications</th>
-                  <CountCells c={report.totals} />
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <CountSection
+            caption="Totals for the range"
+            first="Range"
+            rows={[{ key: "all", label: "All medications", counts: report.totals }]}
+            empty="Nothing recorded or scheduled in this range."
+          />
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-base">
-              <caption className="pb-2 text-left text-lg font-semibold">By medication</caption>
-              <Head first="Medication" />
-              <tbody>
-                {report.by_medication.length === 0 && (
-                  <tr><td colSpan={8} className={td}>Nothing recorded or scheduled in this range.</td></tr>
-                )}
-                {report.by_medication.map((m) => (
-                  <tr key={m.medication_id}>
-                    <th scope="row" className={`${td} text-left font-medium`}>{medLabel(m.name, m.strength)}</th>
-                    <CountCells c={m} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CountSection
+            caption="By medication"
+            first="Medication"
+            rows={report.by_medication.map((m) => ({ key: m.medication_id, label: medLabel(m.name, m.strength), counts: m }))}
+            empty="Nothing recorded or scheduled in this range."
+          />
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-base">
-              <caption className="pb-2 text-left text-lg font-semibold">By day</caption>
-              <Head first="Day" />
-              <tbody>
-                {report.by_day.length === 0 && (
-                  <tr><td colSpan={8} className={td}>No days to show.</td></tr>
-                )}
-                {report.by_day.map((d) => (
-                  <tr key={d.date}>
-                    <th scope="row" className={`${td} text-left font-medium`}>{d.date}</th>
-                    <CountCells c={d} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CountSection
+            caption="By day"
+            first="Day"
+            rows={report.by_day.map((d) => ({ key: d.date, label: d.date, counts: d }))}
+            empty="No days to show."
+          />
 
           <p className="text-sm">
             Not counted above: {report.voided_entries} undone {report.voided_entries === 1 ? "entry" : "entries"} and {report.deleted_entries} deleted{" "}
