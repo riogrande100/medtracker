@@ -1,0 +1,57 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "TZD-MAC-01"
+  ],
+  "_per_scenario": {
+    "TZD-MAC-01": {
+      "kind": "checklist",
+      "title": "Device zone identifier is IANA and resolvable for the sample zone set",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Every sample zone resolves in the bundled tzdb.",
+      "checks_keys": [
+        "tz_report_run_on_device",
+        "automatic_and_manual_selection_tested"
+      ],
+      "numbers_must_equal": {
+        "unresolvable_zone_count": 0
+      }
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "TZD-MAC-01",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "tz_report_run_on_device": null,
+    "automatic_and_manual_selection_tested": null
+  },
+  "numbers": {
+    "unresolvable_zone_count": null
+  },
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "automatic_and_manual_selection_tested",
+    "tz_report_run_on_device"
+  ],
+  "_all_numbers_keys_in_family": [
+    "unresolvable_zone_count"
+  ]
+}

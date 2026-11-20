@@ -1,0 +1,41 @@
+{
+  "_README": "SIMULATOR evidence for B0-09 (HLT-IOS-*). NOT physical-device evidence: per spikes/evidence/templates, simulator files never count toward PASS. Deliberately NOT placed in spikes/evidence/ so evidence_judge cannot ingest it.",
+  "schema": "medtracker.phase0.sim-observations/1",
+  "physical_device": false,
+  "device": {"name": "iPhone 17 (Simulator)", "udid": "62AF9825-F39B-433D-9708-FDE302F5199B", "os_version": "iOS 27.2 simulator runtime", "xcode": "27.2 (27B52)"},
+  "app": {"bundle_id": "spike.medtracker.hkspike", "build_mode": "debug, ad-hoc signed (CODE_SIGN_IDENTITY=-), simulator only"},
+  "observed_on": "2026-11-18",
+  "test_data": "One obviously fake medication 'ZZ Fakemed Test' (Tablet, daily 10:25 PM) and one fake Taken log, created by hand in the simulator Health app. No real data.",
+  "observations": {
+    "HLT-IOS-01": {
+      "simulator_status": "PARTIAL-OBSERVED (physical device still PENDING)",
+      "isHealthDataAvailable": true,
+      "denied_or_ungranted_vs_empty": "With one medication present in Health, an ungranted/denied app got 'medication query OK: 0 medication(s)' and 'dose-event query OK: 0 event(s)' with no error, indistinguishable from a user with no medications (run2, run3).",
+      "authorizationStatus_for_dose_event": "returned 2 (sharingAuthorized) before any grant; it is a write-status API and is not a read-denial signal",
+      "limited_window_detected_when_applicable": "not run",
+      "app_usable_when_health_unavailable": "not run (simulator always available)"
+    },
+    "HLT-IOS-02": {
+      "simulator_status": "PARTIAL-OBSERVED (physical device still PENDING)",
+      "per_object_authorization_flow_observed": true,
+      "details": "requestPerObjectReadAuthorization(userAnnotatedMedicationType) shows 'Medications Access' sheet listing the fake medication with a toggle and our NSHealthShareUsageDescription text (evidence 02, 05, 08). After granting: medication query returned 1 medication (displayText, isArchived=false, hasSchedule=true); dose query returned 1 event logStatus=4 (taken) scheduleType=2 (schedule) (run4, evidence 09-11).",
+      "dose_events_authorized_via": "the medication per-object grant: requestPerObjectReadAuthorization and requestAuthorization(read:) both raise NSInvalidArgumentException for the dose-event type itself",
+      "taken_claim_shown_as_unverified_external": "not applicable to a log-only spike app; no ledger exists in the spike",
+      "ledger_dose_events_delta": 0,
+      "occurrence_status_changes": 0
+    },
+    "HLT-IOS-03": {
+      "simulator_status": "OBSERVED: write not possible (record OS result)",
+      "result": "requestAuthorization(toShare:[medicationDoseEventType], read:[]) raised uncaught NSInvalidArgumentException: 'Authorization to share the following types is disallowed: HKMedicationDoseEventTypeIdentifierMedicationDoseEvent' (run-write-probe-console.txt). HKMedicationDoseEvent.init is NS_UNAVAILABLE in the SDK headers. This is the simulator OS result; confirm on a physical device."
+    },
+    "HLT-IOS-04": {
+      "simulator_status": "NOT RUN",
+      "note": "Revocation while running, deleted source data and locked-device read failure were not exercised. Only observed: uninstalling/reinstalling the spike app reset its grant (prompt reappeared), and after an explicit Don't Allow a repeat requestPerObjectReadAuthorization returned OK with no sheet (evidence 06)."
+    }
+  },
+  "crashes_observed": [
+    "requestPerObjectReadAuthorization(medicationDoseEventType): 'Per-Object authorization to read ... MedicationDoseEvent is disallowed' (run1)",
+    "requestAuthorization(toShare:[], read:[medicationDoseEventType]): 'Authorization to read the following types is disallowed' (run-auth-read-dose)",
+    "requestAuthorization(toShare:[medicationDoseEventType]): 'Authorization to share the following types is disallowed' (run-write-probe)"
+  ]
+}

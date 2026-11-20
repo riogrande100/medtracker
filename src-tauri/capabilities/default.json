@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Core event/window access only. No http, shell, fs, or opener permissions: the runtime network allowlist is empty.",
+  "description": "Core event/window access only. No http, shell, fs, dialog, or opener permissions and no file scope: the runtime network allowlist is empty. The dialog and fs plugins are registered but used only from Rust (src/transfer.rs); the web view cannot call them.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

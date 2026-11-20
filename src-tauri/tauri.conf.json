@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MedTracker",
+  "productName": "Sigil",
   "version": "0.1.0",
-  "identifier": "app.medtracker.local",
+  "identifier": "app.sigil.journal",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "MedTracker", "width": 480, "height": 820, "minWidth": 360, "minHeight": 560 }],
+    "windows": [{ "title": "Sigil", "width": 480, "height": 820, "minWidth": 360, "minHeight": 560 }],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     }

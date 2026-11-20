@@ -28,3 +28,50 @@ export function nowLocalInput(d = new Date()): string {
 export function medLabel(name: string, strength: string | null): string {
   return strength ? `${name} ${strength}` : name;
 }
+
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+export const WEEKDAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
+/** "Mon, Wed" / "Every day" / "Weekdays". `days` are ISO numbers 1..7. */
+export function formatWeekdays(days: number[]): string {
+  if (days.length === 0 || days.length === 7) return "every day";
+  if (days.length === 5 && [1, 2, 3, 4, 5].every((d) => days.includes(d))) return "weekdays";
+  return days.map((d) => WEEKDAYS[d - 1]).join(", ");
+}
+
+/** 28800 -> "8 hours"; 5400 -> "90 minutes"; 172800 -> "2 days". */
+export function formatInterval(seconds: number): string {
+  const unit = (n: number, u: string) => `${n} ${u}${n === 1 ? "" : "s"}`;
+  if (seconds % 86400 === 0) return unit(seconds / 86400, "day");
+  if (seconds % 3600 === 0) return unit(seconds / 3600, "hour");
+  if (seconds % 60 === 0) return unit(seconds / 60, "minute");
+  return unit(seconds, "second");
+}
+
+/** The device's IANA zone id, or null where the platform can't say. */
+export function deviceZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
+/** IANA zone ids to choose from, offline (from the platform), always including `extra`. */
+export function zoneChoices(...extra: (string | null | undefined)[]): string[] {
+  let all: string[] = [];
+  try {
+    all = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? [];
+  } catch {
+    all = [];
+  }
+  const set = new Set([...all, ...extra.filter((z): z is string => !!z)]);
+  if (set.size === 0) set.add("UTC");
+  return [...set].sort();
+}
+
+/** "Mar 10, 2026 8:00 AM EDT" from a preview/next-due row. */
+export function formatOccurrence(o: { local_date: string; local_time: string; zone_abbreviation: string | null; offset_seconds: number; adjusted: boolean }): string {
+  const zone = o.zone_abbreviation ?? formatOffset(o.offset_seconds);
+  return `${formatLocal(`${o.local_date}T${o.local_time}`)} ${zone}${o.adjusted ? " (adjusted for a clock change)" : ""}`;
+}

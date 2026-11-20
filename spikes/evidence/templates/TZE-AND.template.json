@@ -1,0 +1,59 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "TZE-AND-01"
+  ],
+  "_per_scenario": {
+    "TZE-AND-01": {
+      "kind": "checklist",
+      "title": "Zone change detected while running, after background, and on cold start",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "All checks true.",
+      "checks_keys": [
+        "detected_while_foreground",
+        "detected_on_resume_after_background",
+        "detected_on_cold_start_after_closed",
+        "future_occurrences_recomputed",
+        "past_snapshots_unchanged"
+      ]
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "TZE-AND-01",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "detected_while_foreground": null,
+    "detected_on_resume_after_background": null,
+    "detected_on_cold_start_after_closed": null,
+    "future_occurrences_recomputed": null,
+    "past_snapshots_unchanged": null
+  },
+  "numbers": {},
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "detected_on_cold_start_after_closed",
+    "detected_on_resume_after_background",
+    "detected_while_foreground",
+    "future_occurrences_recomputed",
+    "past_snapshots_unchanged"
+  ],
+  "_all_numbers_keys_in_family": []
+}

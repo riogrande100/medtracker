@@ -1,0 +1,103 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "HLT-AND-01",
+    "HLT-AND-02",
+    "HLT-AND-03"
+  ],
+  "_per_scenario": {
+    "HLT-AND-01": {
+      "kind": "checklist",
+      "title": "Health Connect availability states handled",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "All states handled without crash; ledger unaffected.",
+      "checks_keys": [
+        "sdk_unavailable_handled",
+        "provider_update_required_handled",
+        "available_state_ok",
+        "app_usable_when_unavailable"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0
+      }
+    },
+    "HLT-AND-02": {
+      "kind": "checklist",
+      "title": "Health Connect permission denied or revoked while running",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Missing permission is shown as unknown, never as no doses.",
+      "checks_keys": [
+        "denied_handled",
+        "revoked_handled",
+        "no_records_shown_as_unknown"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0
+      }
+    },
+    "HLT-AND-03": {
+      "kind": "checklist",
+      "title": "Health Connect Medical Records medication resources read as external claims",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Experimental API. A medication statement is a reported medication, not evidence of intake.",
+      "checks_keys": [
+        "requires_android_16_sdk_recorded",
+        "medication_resources_shown_as_unverified_external",
+        "play_policy_status_recorded"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0,
+        "occurrence_status_changes": 0
+      }
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "HLT-AND-01",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "sdk_unavailable_handled": null,
+    "provider_update_required_handled": null,
+    "available_state_ok": null,
+    "app_usable_when_unavailable": null
+  },
+  "numbers": {
+    "ledger_dose_events_delta": null
+  },
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "app_usable_when_unavailable",
+    "available_state_ok",
+    "denied_handled",
+    "medication_resources_shown_as_unverified_external",
+    "no_records_shown_as_unknown",
+    "play_policy_status_recorded",
+    "provider_update_required_handled",
+    "requires_android_16_sdk_recorded",
+    "revoked_handled",
+    "sdk_unavailable_handled"
+  ],
+  "_all_numbers_keys_in_family": [
+    "ledger_dose_events_delta",
+    "occurrence_status_changes"
+  ]
+}

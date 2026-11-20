@@ -1,0 +1,157 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "REM-MAC-00",
+    "REM-MAC-01",
+    "REM-MAC-02",
+    "REM-MAC-03",
+    "REM-MAC-04",
+    "REM-MAC-05",
+    "REM-MAC-06"
+  ],
+  "_per_scenario": {
+    "REM-MAC-00": {
+      "kind": "checklist",
+      "title": "Signed macOS bundle shows correct app identity for an immediate notification",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Plugin source sets a different application identity when running in development.",
+      "checks_keys": [
+        "bundle_notification_shows_app_identity",
+        "dev_run_identity_recorded",
+        "launches_offline"
+      ]
+    },
+    "REM-MAC-01": {
+      "kind": "checklist",
+      "title": "Plugin schedule on desktop is immediate, not scheduled",
+      "required_for_go": false,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Confirms the app must not route desktop reminders through the plugin schedule option.",
+      "checks_keys": [
+        "scheduled_request_shown_immediately_or_rejected",
+        "behavior_recorded"
+      ]
+    },
+    "REM-MAC-02": {
+      "kind": "timed_delivery",
+      "title": "Native UNUserNotificationCenter request with the app quit",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "At least 19 of 20 trials within 5 minutes with the app process confirmed not running.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-MAC-03": {
+      "kind": "checklist",
+      "title": "Sleep, wake, and lid-closed delivery",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Behavior recorded and the app never reports a dose as missed.",
+      "checks_keys": [
+        "sleep_wake_behavior_recorded",
+        "late_delivery_behavior_recorded",
+        "app_reports_not_delivered_without_missed_wording"
+      ]
+    },
+    "REM-MAC-04": {
+      "kind": "checklist",
+      "title": "Restart with requests pending",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Survival across restart is recorded; no duplicates after reconcile.",
+      "checks_keys": [
+        "pending_survived_restart",
+        "reconcile_after_restart_creates_no_duplicates"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0
+      }
+    },
+    "REM-MAC-05": {
+      "kind": "checklist",
+      "title": "Schedule edit, time-zone change, and clock change",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "No stale or duplicate requests after reconcile.",
+      "checks_keys": [
+        "old_request_removed",
+        "app_detected_zone_or_clock_change",
+        "stale_requests_replaced"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0,
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-MAC-06": {
+      "kind": "checklist",
+      "title": "Permission states and Focus",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "All checks true.",
+      "checks_keys": [
+        "not_determined_reported",
+        "granted_reported",
+        "denied_reported",
+        "ledger_usable_when_denied",
+        "focus_suppression_recorded"
+      ]
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "REM-MAC-00",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "bundle_notification_shows_app_identity": null,
+    "dev_run_identity_recorded": null,
+    "launches_offline": null
+  },
+  "numbers": {},
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "app_detected_zone_or_clock_change",
+    "app_reports_not_delivered_without_missed_wording",
+    "behavior_recorded",
+    "bundle_notification_shows_app_identity",
+    "denied_reported",
+    "dev_run_identity_recorded",
+    "focus_suppression_recorded",
+    "granted_reported",
+    "late_delivery_behavior_recorded",
+    "launches_offline",
+    "ledger_usable_when_denied",
+    "not_determined_reported",
+    "old_request_removed",
+    "pending_survived_restart",
+    "reconcile_after_restart_creates_no_duplicates",
+    "scheduled_request_shown_immediately_or_rejected",
+    "sleep_wake_behavior_recorded",
+    "stale_requests_replaced"
+  ],
+  "_all_numbers_keys_in_family": [
+    "duplicate_deliveries",
+    "stale_deliveries"
+  ]
+}

@@ -1,16 +1,68 @@
-use crate::application::{ledger, medication};
-use crate::clock::TimeCtx;
+use crate::application::{ledger, medication, schedule};
+use crate::clock::{TimeCtx, Zone};
 use crate::dto::*;
 use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::State;
 
-pub struct Db(pub Mutex<Connection>);
+/// App database state. If opening failed (newer version, corrupt, failed upgrade) there is no
+/// connection and `startup_error` explains why; the data file has been left untouched and every
+/// command returns that same typed error so the UI can show a recoverable screen.
+pub struct Db {
+    pub conn: Mutex<Option<Connection>>,
+    pub startup_error: Option<AppError>,
+    path: PathBuf,
+    /// The pre-upgrade snapshot made by THIS launch (the only recovery copy for that upgrade).
+    /// It is kept until the next launch; every other snapshot is purged on privacy deletion.
+    snapshot: Option<PathBuf>,
+}
 
-fn with<T>(db: &State<Db>, f: impl FnOnce(&mut Connection) -> AppResult<T>) -> AppResult<T> {
-    let mut c = db.0.lock().map_err(|_| AppError::Storage("database unavailable".into()))?;
-    f(&mut c)
+impl Db {
+    pub fn open(path: &Path) -> Db {
+        match crate::storage::open_report(path) {
+            Ok(o) => {
+                // Schedules migrated from Phase 1 have no zone yet: give them the device's.
+                if let Some(zone) = Zone::detect().id() {
+                    let _ = schedule::adopt_device_zone(&o.conn, zone);
+                }
+                Db { conn: Mutex::new(Some(o.conn)), startup_error: None, path: path.to_path_buf(), snapshot: o.snapshot }
+            }
+            Err(e) => Db { conn: Mutex::new(None), startup_error: Some(e), path: path.to_path_buf(), snapshot: None },
+        }
+    }
+
+    /// The live database file (backup/restore works on files next to it).
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// True while this launch's pre-upgrade copy (which still contains deleted content) is on disk.
+    pub fn upgrade_copy_exists(&self) -> bool {
+        self.snapshot.as_ref().is_some_and(|s| s.exists())
+    }
+
+    /// After a privacy deletion: remove any pre-upgrade snapshot older than this launch. This
+    /// launch's own snapshot stays, because it is the only way back from a bad upgrade.
+    pub fn purge_older_snapshots(&self) {
+        crate::storage::purge_snapshots(&self.path, self.snapshot.as_deref());
+    }
+}
+
+pub(crate) fn with<T>(db: &State<Db>, f: impl FnOnce(&mut Connection) -> AppResult<T>) -> AppResult<T> {
+    if let Some(e) = &db.startup_error {
+        return Err(e.clone());
+    }
+    let mut guard = db.conn.lock().map_err(|_| AppError::Storage("database unavailable".into()))?;
+    let c = guard.as_mut().ok_or_else(|| AppError::Storage("database unavailable".into()))?;
+    f(c)
+}
+
+/// `None` when the database opened normally; otherwise the reason it did not.
+#[tauri::command]
+pub fn startup_status(db: State<Db>) -> Option<AppError> {
+    db.startup_error.clone()
 }
 
 #[tauri::command]
@@ -34,8 +86,29 @@ pub fn undo_dose(db: State<Db>, event_id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn list_history(db: State<Db>) -> AppResult<Vec<HistoryEntry>> {
-    with(&db, |c| ledger::history(c, 200))
+pub fn restore_dose(db: State<Db>, event_id: String) -> AppResult<()> {
+    with(&db, |c| ledger::restore(c, TimeCtx::system(), &event_id))
+}
+
+/// Permanent privacy deletion of one entry's content. Distinct from `undo_dose`.
+#[tauri::command]
+pub fn delete_dose_entry(db: State<Db>, event_id: String) -> AppResult<()> {
+    with(&db, |c| ledger::delete_entry(c, TimeCtx::system(), &event_id))?;
+    db.purge_older_snapshots();
+    Ok(())
+}
+
+/// Whether a temporary pre-upgrade copy of the data (made by this launch) still exists; the
+/// deletion dialogs must say so because that copy still holds what is being deleted.
+#[tauri::command]
+pub fn upgrade_copy_exists(db: State<Db>) -> bool {
+    db.upgrade_copy_exists()
+}
+
+/// One page of History, newest first. Pass the previous page's `next_cursor` as `before`.
+#[tauri::command]
+pub fn list_history(db: State<Db>, limit: Option<u32>, before: Option<HistoryCursor>) -> AppResult<HistoryPage> {
+    with(&db, |c| ledger::history_page(c, limit, before))
 }
 
 #[tauri::command]
@@ -45,7 +118,7 @@ pub fn create_medication(db: State<Db>, input: NewMedication) -> AppResult<Strin
 
 #[tauri::command]
 pub fn list_medications(db: State<Db>) -> AppResult<Vec<MedicationSummary>> {
-    with(&db, |c| medication::list(c))
+    with(&db, |c| medication::list(c, &TimeCtx::system()))
 }
 
 #[tauri::command]
@@ -61,5 +134,50 @@ pub fn archive_medication(db: State<Db>, id: String, archived: bool) -> AppResul
 
 #[tauri::command]
 pub fn delete_medication(db: State<Db>, id: String) -> AppResult<()> {
-    with(&db, |c| medication::delete(c, &id))
+    with(&db, |c| medication::delete(c, &id))?;
+    db.purge_older_snapshots();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn create_schedule(db: State<Db>, input: NewSchedule) -> AppResult<String> {
+    with(&db, |c| schedule::create(c, &TimeCtx::system(), input))
+}
+
+/// Saves a new schedule version effective now. Past occurrences and history are not rewritten.
+#[tauri::command]
+pub fn edit_schedule(db: State<Db>, input: EditSchedule) -> AppResult<()> {
+    with(&db, |c| schedule::edit(c, &TimeCtx::system(), input))
+}
+
+#[tauri::command]
+pub fn pause_schedule(db: State<Db>, schedule_id: String) -> AppResult<()> {
+    with(&db, |c| schedule::pause(c, &TimeCtx::system(), &schedule_id))
+}
+
+#[tauri::command]
+pub fn resume_schedule(db: State<Db>, schedule_id: String) -> AppResult<()> {
+    with(&db, |c| schedule::resume(c, &TimeCtx::system(), &schedule_id))
+}
+
+#[tauri::command]
+pub fn end_schedule(db: State<Db>, schedule_id: String) -> AppResult<()> {
+    with(&db, |c| schedule::end(c, &TimeCtx::system(), &schedule_id))
+}
+
+/// The next seven occurrences of a schedule that has not been saved. Writes nothing.
+#[tauri::command]
+pub fn preview_schedule(input: ScheduleInput) -> AppResult<Vec<PreviewOccurrence>> {
+    schedule::preview(&TimeCtx::system(), &input)
+}
+
+#[tauri::command]
+pub fn next_due(db: State<Db>) -> AppResult<Option<NextDue>> {
+    with(&db, |c| schedule::next_due(c, &TimeCtx::system()))
+}
+
+/// Materializes occurrences for an inclusive local date range. Idempotent; returns rows added.
+#[tauri::command]
+pub fn generate_occurrences(db: State<Db>, from: String, to: String) -> AppResult<usize> {
+    with(&db, |c| schedule::generate_range(c, &TimeCtx::system(), &from, &to))
 }

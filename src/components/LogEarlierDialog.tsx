@@ -34,7 +34,7 @@ export function LogEarlierDialog({
 
   async function save() {
     try {
-      await api.recordDose({ medication_id: medId, kind, slot_id: null, local_date: null, occurred_local: when, note: note || null });
+      await api.recordDose({ medication_id: medId, kind, occurrence_id: null, occurred_local: when, note: note || null });
       setNote("");
       onOpenChange(false);
       onSaved();
@@ -44,7 +44,19 @@ export function LogEarlierDialog({
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Log an earlier dose" description="Record a dose that already happened, at the time you say it did.">
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Log an earlier dose"
+      description="Record a dose that already happened, at the time you say it did."
+      onSubmit={save}
+      footer={
+        <>
+          <Button type="submit" variant="primary" className="flex-1" disabled={!medId}>Save</Button>
+          <Button className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
+        </>
+      }
+    >
       <div className="space-y-3">
         <Field label="Medication">
           <select className={inputClass} value={medId} onChange={(e) => setMedId(e.target.value)}>
@@ -66,10 +78,6 @@ export function LogEarlierDialog({
           <input className={inputClass} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {error && <p role="alert" className="text-red-800">{error}</p>}
-        <div className="flex gap-2">
-          <Button variant="primary" className="flex-1" disabled={!medId} onClick={save}>Save</Button>
-          <Button className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
-        </div>
       </div>
     </Modal>
   );

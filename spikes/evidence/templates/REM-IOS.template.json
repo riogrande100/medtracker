@@ -1,0 +1,261 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "REM-IOS-00",
+    "REM-IOS-01",
+    "REM-IOS-02",
+    "REM-IOS-03",
+    "REM-IOS-04",
+    "REM-IOS-05",
+    "REM-IOS-06",
+    "REM-IOS-07",
+    "REM-IOS-08",
+    "REM-IOS-09",
+    "REM-IOS-10",
+    "REM-IOS-11"
+  ],
+  "_per_scenario": {
+    "REM-IOS-00": {
+      "kind": "checklist",
+      "title": "Tauri iOS build installs and launches offline on a physical iPhone",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "All four checks true on a physical iPhone. Record Tauri, plugin, Xcode, iOS versions in the evidence notes.",
+      "checks_keys": [
+        "tauri_ios_build_succeeds",
+        "installs_on_physical_device",
+        "launches_in_airplane_mode",
+        "notification_plugin_version_recorded"
+      ]
+    },
+    "REM-IOS-01": {
+      "kind": "checklist",
+      "title": "Notification permission states are reported correctly and the ledger stays usable",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "All checks true across not-determined, granted, denied, and re-enabled-in-Settings.",
+      "checks_keys": [
+        "not_determined_reported",
+        "granted_reported",
+        "denied_reported",
+        "reenabled_in_settings_reported",
+        "ledger_usable_when_denied",
+        "degraded_notice_has_no_missed_or_taken_wording"
+      ]
+    },
+    "REM-IOS-02": {
+      "kind": "timed_delivery",
+      "title": "One-shot delivery, app backgrounded, screen locked",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "At least 19 of 20 trials observed within 5 minutes after target (5 s early tolerance), zero duplicate, zero stale.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-IOS-03": {
+      "kind": "timed_delivery",
+      "title": "One-shot delivery after the user force-quits the app",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "At least 19 of 20 trials observed within 5 minutes after target, zero duplicate, zero stale.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-IOS-04": {
+      "kind": "timed_delivery",
+      "title": "Daily wall-clock request delivery (calendar trigger) on 20 consecutive occurrences",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "At least 19 of 20 occurrences observed within 5 minutes after the local target, zero duplicate, zero stale. Simulated clock days are allowed only if flagged in notes.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-IOS-05": {
+      "kind": "checklist",
+      "title": "Schedule edit with an old request pending: cancel and replace",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Old request gone from the pending list, expected IDs present, zero stale and zero duplicate deliveries.",
+      "checks_keys": [
+        "old_request_cancelled",
+        "pending_list_matches_expected_ids",
+        "occurrence_id_payload_round_trips"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0,
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-IOS-06": {
+      "kind": "checklist",
+      "title": "Reboot with pending requests",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Pending requests survive, deliver within 5 minutes, and reconcile adds no duplicates.",
+      "checks_keys": [
+        "pending_requests_survived_reboot",
+        "delivered_after_reboot_within_window",
+        "reconcile_after_reboot_creates_no_duplicates"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0
+      }
+    },
+    "REM-IOS-07": {
+      "kind": "checklist",
+      "title": "Time-zone change while the app is closed: trigger behavior and reconciliation",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Behavior of both trigger types is recorded and, after reconcile on next launch, there are no stale or duplicate requests and no past snapshot changed.",
+      "checks_keys": [
+        "calendar_trigger_behavior_recorded",
+        "time_interval_trigger_behavior_recorded",
+        "reconcile_replaced_stale_requests",
+        "no_past_occurrence_rewritten"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0,
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-IOS-08": {
+      "kind": "checklist",
+      "title": "Manual clock jump with an elapsed-time trigger pending",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Plugin 'at' schedules map to elapsed-time triggers in source; the recorded fire time shows whether a clock jump moves them, and the app reconciles without rewriting history.",
+      "checks_keys": [
+        "fire_time_vs_target_recorded",
+        "app_detected_clock_jump_on_resume",
+        "reconcile_after_jump_creates_no_duplicates",
+        "no_past_utc_instant_rewritten"
+      ]
+    },
+    "REM-IOS-09": {
+      "kind": "measurement",
+      "title": "Pending-request capacity",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Measured capacity recorded; the app's rolling-window cap is not above it. Apple docs fetched do not state a cap.",
+      "numbers_keys": [
+        "max_pending_observed",
+        "app_horizon_cap"
+      ],
+      "relations": [
+        {
+          "lhs": "app_horizon_cap",
+          "op": "<=",
+          "rhs": "max_pending_observed"
+        }
+      ]
+    },
+    "REM-IOS-10": {
+      "kind": "checklist",
+      "title": "Tap, dismiss, and action never write a dose",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "Ledger dose-event count and occurrence status are unchanged after every interaction.",
+      "checks_keys": [
+        "tap_opens_occurrence_screen",
+        "dismiss_changes_nothing",
+        "action_tap_changes_nothing_if_actions_registered"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0,
+        "occurrence_status_changes": 0
+      }
+    },
+    "REM-IOS-11": {
+      "kind": "checklist",
+      "title": "Lock-screen privacy with generic text",
+      "required_for_go": true,
+      "min_distinct_devices": 1,
+      "pass_criteria": "No medication name, dose, or condition is visible on the locked screen under default and Show Previews settings.",
+      "checks_keys": [
+        "lock_screen_shows_generic_text_only",
+        "no_medication_name_visible_before_unlock",
+        "preview_setting_respected"
+      ]
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "REM-IOS-00",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "tauri_ios_build_succeeds": null,
+    "installs_on_physical_device": null,
+    "launches_in_airplane_mode": null,
+    "notification_plugin_version_recorded": null
+  },
+  "numbers": {},
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "action_tap_changes_nothing_if_actions_registered",
+    "app_detected_clock_jump_on_resume",
+    "calendar_trigger_behavior_recorded",
+    "degraded_notice_has_no_missed_or_taken_wording",
+    "delivered_after_reboot_within_window",
+    "denied_reported",
+    "dismiss_changes_nothing",
+    "fire_time_vs_target_recorded",
+    "granted_reported",
+    "installs_on_physical_device",
+    "launches_in_airplane_mode",
+    "ledger_usable_when_denied",
+    "lock_screen_shows_generic_text_only",
+    "no_medication_name_visible_before_unlock",
+    "no_past_occurrence_rewritten",
+    "no_past_utc_instant_rewritten",
+    "not_determined_reported",
+    "notification_plugin_version_recorded",
+    "occurrence_id_payload_round_trips",
+    "old_request_cancelled",
+    "pending_list_matches_expected_ids",
+    "pending_requests_survived_reboot",
+    "preview_setting_respected",
+    "reconcile_after_jump_creates_no_duplicates",
+    "reconcile_after_reboot_creates_no_duplicates",
+    "reconcile_replaced_stale_requests",
+    "reenabled_in_settings_reported",
+    "tap_opens_occurrence_screen",
+    "tauri_ios_build_succeeds",
+    "time_interval_trigger_behavior_recorded"
+  ],
+  "_all_numbers_keys_in_family": [
+    "app_horizon_cap",
+    "duplicate_deliveries",
+    "ledger_dose_events_delta",
+    "max_pending_observed",
+    "occurrence_status_changes",
+    "stale_deliveries"
+  ]
+}

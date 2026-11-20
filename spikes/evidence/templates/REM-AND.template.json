@@ -1,0 +1,313 @@
+{
+  "_README": "TEMPLATE. Copy to spikes/evidence/<scenario_id>-<device_id>.json, set scenario_id, fill every field from a PHYSICAL device run, delete all keys starting with underscore. Unfilled (null) fields are INVALID and the scenario stays PENDING. Never set synthetic=true for real evidence; synthetic and emulator/simulator files never count.",
+  "_covers_scenarios": [
+    "REM-AND-00",
+    "REM-AND-01",
+    "REM-AND-02",
+    "REM-AND-03",
+    "REM-AND-04",
+    "REM-AND-05",
+    "REM-AND-06",
+    "REM-AND-07",
+    "REM-AND-08",
+    "REM-AND-09",
+    "REM-AND-10",
+    "REM-AND-11",
+    "REM-AND-12",
+    "REM-AND-13",
+    "REM-AND-14"
+  ],
+  "_per_scenario": {
+    "REM-AND-00": {
+      "kind": "checklist",
+      "title": "Tauri Android build installs and launches offline on a physical phone",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "All checks true on two phones from different manufacturers. Record merged-manifest permissions.",
+      "checks_keys": [
+        "tauri_android_build_succeeds",
+        "installs_on_physical_device",
+        "launches_in_airplane_mode",
+        "notification_plugin_version_recorded",
+        "manifest_permissions_recorded"
+      ]
+    },
+    "REM-AND-01": {
+      "kind": "checklist",
+      "title": "POST_NOTIFICATIONS and channel states reported; ledger stays usable",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "All checks true on API 33+ devices.",
+      "checks_keys": [
+        "not_determined_reported",
+        "granted_reported",
+        "denied_reported",
+        "channel_disabled_reported",
+        "ledger_usable_when_denied",
+        "degraded_notice_has_no_missed_or_taken_wording"
+      ]
+    },
+    "REM-AND-02": {
+      "kind": "timed_delivery",
+      "title": "Exact-alarm access NOT granted: delivery with screen off",
+      "required_for_go": false,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Informational: measures the weaker path the plugin falls back to. Passing is not required; the result decides whether reminders are labeled approximate or omitted.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-AND-03": {
+      "kind": "timed_delivery",
+      "title": "Exact-alarm access granted, allowWhileIdle on: delivery with screen off",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "At least 19 of 20 trials within 5 minutes after target, zero duplicate, zero stale, on each device.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-AND-04": {
+      "kind": "timed_delivery",
+      "title": "Forced Doze idle: delivery",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Same threshold with `adb shell dumpsys deviceidle force-idle` active.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-AND-05": {
+      "kind": "timed_delivery",
+      "title": "App swiped from recents: delivery",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Same threshold with the app task removed from recents (not Force stop).",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-AND-06": {
+      "kind": "checklist",
+      "title": "Force stop cancels alarms; app detects and rebuilds on next launch",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Plugin pending() reads its own storage, so detection must be verified against `dumpsys alarm`, not pending().",
+      "checks_keys": [
+        "os_alarms_gone_confirmed_via_dumpsys",
+        "app_detected_removed_requests_on_launch",
+        "reminders_rescheduled_on_launch",
+        "degraded_notice_shown_then_cleared"
+      ],
+      "numbers_must_equal": {
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-AND-07": {
+      "kind": "checklist",
+      "title": "Reboot: restore of future requests, behavior for past-due requests",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Future requests deliver, no dose is written by restore, no duplicates. Past-due behavior (source: re-fired about 15 s after boot) is recorded for a product decision.",
+      "checks_keys": [
+        "future_requests_restored_and_delivered",
+        "past_due_behavior_recorded",
+        "no_dose_written_by_boot_restore",
+        "reconcile_after_boot_creates_no_duplicates"
+      ],
+      "numbers_must_equal": {
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-AND-08": {
+      "kind": "checklist",
+      "title": "Time-zone change and manual clock change while the app is closed",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "After reconcile on next launch there are no stale or duplicate requests and no past snapshot changed.",
+      "checks_keys": [
+        "behavior_recorded",
+        "app_detected_change_on_resume",
+        "stale_requests_replaced",
+        "no_past_occurrence_rewritten"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0,
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-AND-09": {
+      "kind": "checklist",
+      "title": "Exact-alarm access revoked while requests are pending",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Android docs say revocation cancels future exact alarms; the app must notice and say so.",
+      "checks_keys": [
+        "system_cancelled_requests_confirmed",
+        "app_detected_on_resume",
+        "status_shows_exact_timing_lost",
+        "ledger_unaffected"
+      ]
+    },
+    "REM-AND-10": {
+      "kind": "checklist",
+      "title": "Schedule edit with an old request pending: cancel and replace",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Old alarm absent from `dumpsys alarm`, zero stale and zero duplicate deliveries.",
+      "checks_keys": [
+        "old_request_cancelled_confirmed_via_dumpsys",
+        "occurrence_id_payload_round_trips"
+      ],
+      "numbers_must_equal": {
+        "stale_deliveries": 0,
+        "duplicate_deliveries": 0
+      }
+    },
+    "REM-AND-11": {
+      "kind": "checklist",
+      "title": "Tap, dismiss, and action never write a dose",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Ledger dose-event count and occurrence status are unchanged after every interaction.",
+      "checks_keys": [
+        "tap_opens_occurrence_screen",
+        "dismiss_changes_nothing",
+        "action_tap_changes_nothing_if_actions_registered"
+      ],
+      "numbers_must_equal": {
+        "ledger_dose_events_delta": 0,
+        "occurrence_status_changes": 0
+      }
+    },
+    "REM-AND-12": {
+      "kind": "checklist",
+      "title": "Lock-screen privacy with generic text",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "No medication name, dose, or condition is visible on the locked screen.",
+      "checks_keys": [
+        "lock_screen_shows_generic_text_only",
+        "no_medication_name_visible_before_unlock",
+        "channel_visibility_setting_effective"
+      ]
+    },
+    "REM-AND-13": {
+      "kind": "timed_delivery",
+      "title": "Restricted battery mode and OEM background limits: delivery",
+      "required_for_go": false,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Informational: determines which user-facing battery guidance, if any, is needed.",
+      "timed": {
+        "min_trials": 20,
+        "min_delivered": 19,
+        "window_s": 300,
+        "early_tolerance_s": 5
+      }
+    },
+    "REM-AND-14": {
+      "kind": "measurement",
+      "title": "Concurrent alarm capacity",
+      "required_for_go": true,
+      "min_distinct_devices": 2,
+      "pass_criteria": "Measured capacity recorded; the app's rolling-window cap is not above it.",
+      "numbers_keys": [
+        "max_alarms_observed",
+        "app_horizon_cap"
+      ],
+      "relations": [
+        {
+          "lhs": "app_horizon_cap",
+          "op": "<=",
+          "rhs": "max_alarms_observed"
+        }
+      ]
+    }
+  },
+  "_allowed_build_modes": [
+    "release-dev-signed",
+    "release-distribution-signed"
+  ],
+  "schema": "medtracker.phase0.evidence/1",
+  "scenario_id": "REM-AND-00",
+  "synthetic": false,
+  "physical_device": null,
+  "device": {
+    "id": null,
+    "manufacturer": null,
+    "model": null,
+    "os_version": null
+  },
+  "app": {
+    "build_mode": null
+  },
+  "started_at_utc": null,
+  "operator": null,
+  "trials": [],
+  "checks": {
+    "tauri_android_build_succeeds": null,
+    "installs_on_physical_device": null,
+    "launches_in_airplane_mode": null,
+    "notification_plugin_version_recorded": null,
+    "manifest_permissions_recorded": null
+  },
+  "numbers": {},
+  "notes": null,
+  "_all_checks_keys_in_family": [
+    "action_tap_changes_nothing_if_actions_registered",
+    "app_detected_change_on_resume",
+    "app_detected_on_resume",
+    "app_detected_removed_requests_on_launch",
+    "behavior_recorded",
+    "channel_disabled_reported",
+    "channel_visibility_setting_effective",
+    "degraded_notice_has_no_missed_or_taken_wording",
+    "degraded_notice_shown_then_cleared",
+    "denied_reported",
+    "dismiss_changes_nothing",
+    "future_requests_restored_and_delivered",
+    "granted_reported",
+    "installs_on_physical_device",
+    "launches_in_airplane_mode",
+    "ledger_unaffected",
+    "ledger_usable_when_denied",
+    "lock_screen_shows_generic_text_only",
+    "manifest_permissions_recorded",
+    "no_dose_written_by_boot_restore",
+    "no_medication_name_visible_before_unlock",
+    "no_past_occurrence_rewritten",
+    "not_determined_reported",
+    "notification_plugin_version_recorded",
+    "occurrence_id_payload_round_trips",
+    "old_request_cancelled_confirmed_via_dumpsys",
+    "os_alarms_gone_confirmed_via_dumpsys",
+    "past_due_behavior_recorded",
+    "reconcile_after_boot_creates_no_duplicates",
+    "reminders_rescheduled_on_launch",
+    "stale_requests_replaced",
+    "status_shows_exact_timing_lost",
+    "system_cancelled_requests_confirmed",
+    "tap_opens_occurrence_screen",
+    "tauri_android_build_succeeds"
+  ],
+  "_all_numbers_keys_in_family": [
+    "app_horizon_cap",
+    "duplicate_deliveries",
+    "ledger_dose_events_delta",
+    "max_alarms_observed",
+    "occurrence_status_changes",
+    "stale_deliveries"
+  ]
+}

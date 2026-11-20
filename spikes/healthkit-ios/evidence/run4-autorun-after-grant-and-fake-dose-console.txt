@@ -1,0 +1,9 @@
+SPIKE: isHealthDataAvailable = true
+SPIKE: userAnnotatedMedicationType.requiresPerObjectAuthorization = true
+SPIKE: medicationDoseEventType.requiresPerObjectAuthorization = false
+SPIKE: dose-event authorizationStatus(for:) = 2 (0 notDetermined,1 denied,2 authorized; write-status only)
+SPIKE: medication query OK: 1 medication(s)
+SPIKE:  med: ZZ Fakemed Test archived=false hasSchedule=true
+SPIKE: dose-event query OK: 1 event(s)
+SPIKE:  dose: status=4 sched=2 concept=<HKHealthConceptIdentifier: 0x1043be240>
+spike.medtracker.hkspike: 47049

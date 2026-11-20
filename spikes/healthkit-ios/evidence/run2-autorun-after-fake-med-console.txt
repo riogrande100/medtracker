@@ -1,0 +1,7 @@
+SPIKE: isHealthDataAvailable = true
+SPIKE: userAnnotatedMedicationType.requiresPerObjectAuthorization = true
+SPIKE: medicationDoseEventType.requiresPerObjectAuthorization = false
+SPIKE: dose-event authorizationStatus(for:) = 2 (0 notDetermined,1 denied,2 authorized; write-status only)
+SPIKE: medication query OK: 0 medication(s)
+SPIKE: dose-event query OK: 0 event(s)
+spike.medtracker.hkspike: 46484
