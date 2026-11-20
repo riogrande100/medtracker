@@ -2,7 +2,7 @@
 name = "medtracker"
 version = "0.1.0"
 edition = "2021"
-description = "Local-first medication log"
+description = "Local-first personal tracker and journal"
 
 [lib]
 name = "medtracker_lib"

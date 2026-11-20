@@ -1,7 +1,5 @@
-# medtracker
+# Sigil
 
-A simple private medication tracker.
+A private, local-first tracker and journal for iOS and Android. Track anything with text, photos, or audio (transcribed on-device), then review trends. No accounts, ads, or analytics.
 
-First release scope: mobile only (iOS + Android); Windows and macOS desktop are deferred (owner decision D-29, 2026-11-18).
-
-Documentation index: [docs/README.md](docs/README.md). Planning only; no device, store, or signing evidence exists yet.
+Product direction: [docs/tracker-spec.md](docs/tracker-spec.md). The other documents under `docs/` and `spikes/` describe the previous medication tracker (MedTracker) and are historical until reconciled with the new spec.

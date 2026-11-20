@@ -31,3 +31,6 @@ src-tauri/gen
 # Rust build output
 target/
 spikes/**/target/
+
+# macOS
+.DS_Store

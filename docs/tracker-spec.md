@@ -1,11 +1,11 @@
-# Generic Tracker: Product Spec (draft v0.1)
+# Sigil: Product Spec (draft v0.2)
 
-**Status:** draft for owner review, 2026-11-18. Not yet reconciled with `product-spec.md`, `backlog.md` or `registers.md`; those describe the medication app and are superseded if this direction is adopted.
+**Status:** draft. Owner decisions recorded 2026-11-20 (section 17). Working name **Sigil** (formerly MedTracker). Not yet reconciled with `product-spec.md`, `backlog.md` or `registers.md`; those describe the medication app and are historical until this direction is formally adopted.
 **Scope decision recorded here:** no MCP server or any other AI-chat access in this version. Data leaves the phone only by explicit user export.
 
 ## 1. Purpose
 
-A private, local-first mobile journal for tracking anything. The user defines what to track, logs entries as text, photo, audio (with transcript) or a quick structured value, and later sees trends. It is a hobby/personal-use app, not a commercial product: no payments, ads, accounts or analytics.
+A private, local-first mobile journal for tracking anything. The user defines what to track, logs entries as text, photo, audio (with transcript) or a quick structured value, and later sees trends. It is free, with no payments, ads, accounts or analytics, but it is **planned for public distribution** on the App Store and Google Play, so the store, privacy and legal requirements in section 10 apply from the start.
 
 It is deliberately **not** a medical, health, or medication product. That framing removes the FDA/health-data and drug-catalog licensing work that blocked the medication tracker.
 
@@ -68,11 +68,12 @@ Changing a tracker's type after entries exist is not allowed. The user may archi
 - Each entry may have several attachments. Deleting an entry deletes its files.
 
 ### 6.3 Transcription
-- **Default and v1 requirement: on-device only.** Use the platform speech recognizer where it supports on-device mode, or a bundled on-device model (e.g. a Whisper-class model). No audio leaves the device.
+- **Decided: use the platform speech recognizers, in on-device mode only.** iOS: the Speech framework with on-device recognition required. Android: the platform's on-device recognizer API. The app must never use a mode that sends audio to Apple or Google servers; that is what keeps the "Data Not Collected" label accurate. A bundled model is not used.
+- **Availability varies** by OS version, device and language (U.S. English first). The Phase 0 spike must confirm, at the minimum supported OS on each platform: (a) the recognizer reports on-device support, (b) recognition works with the network disabled, and (c) whether it can transcribe a saved audio file or only live microphone input. If a platform is live-only, transcription runs during recording and the audio is saved alongside it.
 - Transcription runs after recording, in the background; entries show state: pending, done, failed, unavailable for this language.
 - The user can edit the transcript; the raw machine output is retained so edits are reversible.
 - Cloud transcription is **out of scope for v1**. If ever added it must be opt-in per recording, disclose the provider, and ship with an updated privacy policy and App Store privacy labels.
-- If on-device recognition is unavailable for a device/language, the audio is still saved and the UI says so; nothing falls back to a network service silently.
+- If on-device recognition is unavailable for a device/language, the audio is still saved and the UI says so; nothing falls back to a network service silently. Platform recognizers may also impose duration limits per request, so long recordings are transcribed in chunks.
 
 ## 7. Trends and reports
 
@@ -99,7 +100,8 @@ All computation is local and descriptive.
 - **App lock:** optional biometric/passcode gate on launch and resume.
 - **Backup/restore:** reuse the existing encrypted backup format (Argon2 KDF + ChaCha20-Poly1305), extended to include media files in a single archive. Restore validates integrity and keeps a pre-restore copy, as today.
 - **Export:** JSON (full fidelity: trackers, entries, revisions, tag links, transcript metadata) plus CSV per tracker plus a media folder. Round-trip import of the app's own JSON export is in scope.
-- **OS backup:** exclude or include the data folder in iCloud/Google backups as an explicit user setting; default excluded unless encrypted.
+- **OS backup (decided: allowed):** the app's data may be included in iCloud device backup (iOS) and Google Auto Backup (Android). This is the platform's backup of the device, not an app-run sync service, so the app still collects nothing. Provide a user setting to exclude media from OS backup. Android Auto Backup has a per-app size limit (documented at about 25 MB; verify), so the database is always included and media may need to be excluded or left to the encrypted export. Restore from OS backup must be tested on both platforms, including a database with its media files missing.
+- **Cloud storage of exports:** the share sheet can save an export or encrypted backup to iCloud Drive or Google Drive, user-initiated.
 - **Network:** the runtime allowlist stays empty (existing PR-23/D-27 model). No SDKs that phone home.
 - **Privacy policy:** short and truthful: data stays on device; no collection; transcription is on-device; exports are user-initiated. App Store privacy labels: "Data Not Collected."
 
@@ -111,22 +113,36 @@ All computation is local and descriptive.
 - **Permissions strings:** camera, microphone, photos, speech recognition, notifications, biometrics, each with a plain-language purpose.
 - **Other people in media:** terms note the user is responsible for consent when recording or photographing others.
 - **Open-source/licensing:** audit third-party model and library licenses (speech model, chart library, fonts) before release.
-- This section is a posture, not legal advice; confirm with counsel if the app is ever distributed publicly or monetized.
+- **Public distribution checklist (decided 2026-11-20: public release is planned):**
+  - Short legal review of the privacy policy, terms, and store copy before the first public release.
+  - Privacy policy hosted at a public URL (both stores require one), matching the App Store privacy labels and the Google Play Data safety form. Both should say no data is collected, which holds only while transcription stays on-device and the network allowlist stays empty.
+  - Apple export-compliance declaration: the backup feature uses encryption (Argon2 and ChaCha20-Poly1305), so answer the encryption questions accurately.
+  - Developer accounts and signing for both stores (GT-SIGN, GT-STORE). Google Play may require closed testing before production for new personal developer accounts; verify current policy.
+  - Age rating questionnaires, support contact, and open-source license notices for bundled libraries and fonts.
+  - Trademark and store-name clearance for the app name (section 17).
+  - Territories: U.S.-only unless decided otherwise (D-31 and section 17).
+- This section is a posture, not legal advice.
 
 ## 11. Platform and architecture
 
-**Open decision (blocks implementation): Tauri 2 vs native.**
+**Decided (2026-11-20): Tauri 2 with a web view (React/TypeScript) on iOS and Android.** Domain logic, storage, backup and trend queries stay in the Rust core; the UI stays in the web view, as in the current codebase.
 
-| | Tauri 2 (current) | Native SwiftUI (iOS only) |
+Native capabilities the web view cannot provide come from Tauri mobile plugins (Swift on iOS, Kotlin on Android), exposed to the UI only through narrow Rust commands. The current capability file grants the web view no plugin permissions; keep it that way.
+
+| Capability | Planned source | Notes |
 |---|---|---|
-| Reuse | Shell, Rust core, SQLite, backup, clock, tests | Concepts and test cases; Rust core reusable only via FFI |
-| Audio/camera/speech | Needs custom Swift/Kotlin Tauri plugins (none exist in repo) | First-class APIs |
-| Android | Possible; toolchain not set up (B0-10) | None |
-| Maturity risk | Mobile support is young; nothing run on device yet | Low |
+| Audio recording | Custom plugin (platform recorder APIs) | Microphone permission; AAC/M4A output |
+| Photos and camera | Evaluate the dialog plugin's picker first; otherwise a custom plugin | Minimum permission; downscale and EXIF strip in Rust |
+| Speech recognition | Custom plugin over the platform recognizers | On-device only (section 6.3) |
+| Biometric app lock | Official Tauri biometric plugin (check it is maintained) | |
+| Local notifications | Official notification plugin | OS limits noted in `MOBILE.md` |
+| Export/backup save | Existing `transfer.rs` (dialog and fs, used only from Rust) | |
 
-Recommendation: if iOS-only is acceptable, go native SwiftUI for capture and transcription quality, and port the data model and backup design. If both platforms matter, stay on Tauri and budget for native plugins, starting with a **spike for audio recording plus on-device transcription on a real device** before building anything else.
+Charts are drawn in the web view with a small client-side library (audit license and size) and always offer a data-table alternative.
 
-Either way: keep the domain/storage logic free of UI concerns, keep the schema in versioned SQL migrations, and keep the empty network allowlist as a tested invariant.
+Risks specific to this choice: Tauri mobile support is young; nothing has run on a simulator or device yet; the Android toolchain is not installed (B0-10); and the audio, photo and speech plugins are custom native code with no existing reference in the repo. Phase 0 exists to retire these before feature work.
+
+Invariants: domain and storage code free of UI concerns; schema in versioned SQL migrations; the empty network allowlist and strict CSP (no remote script, font or image) remain tested invariants.
 
 ## 12. Data model (v1 sketch)
 
@@ -151,21 +167,23 @@ Full-text index over `entry.note` and transcript text (SQLite FTS5). Entries are
 
 ## 14. Phases
 
-- **Phase 0 - decisions and spikes (1-2 weeks):** platform choice; device spike for audio recording plus on-device transcription; confirm photo/audio storage and backup size behavior.
+- **Phase 0 - rename and device spikes:** rename the app to Sigil (done in config, see section 17 for the bundle id). Install the Android toolchain (B0-10) and get iOS and Android builds running. On a real device per platform: record audio, transcribe on-device with the network off, pick a photo, fire a local notification, and restore an OS backup that includes media. Exit: one evidence artifact per platform and capability.
 - **Phase 1 - core journal:** trackers (all types), entries (text + value), history list, edit/undo/privacy-delete, search, JSON/CSV export, optional app lock.
 - **Phase 2 - media:** photo and audio capture, attachments in entries, transcription, backup including media.
 - **Phase 3 - trends:** per-tracker charts, calendar heatmap, streaks, text keyword trends.
-- **Phase 4 - polish:** reminders, cross-tracker overlay, accessibility pass, store-readiness (privacy policy, labels, listing copy).
+- **Phase 4 - polish:** reminders, cross-tracker overlay, accessibility pass.
+- **Phase 5 - public release:** legal review, privacy policy URL, labels and Data safety form, export compliance, signing and store accounts, closed testing, store listing, name clearance.
 
 ## 15. Acceptance criteria (v1)
 
 1. Create a tracker of each type; log entries offline; data persists across app restarts.
-2. Record audio on a real device with airplane mode on; a transcript appears without any network use (verified by network capture or allowlist test).
-3. Photos and audio survive backup, restore on a clean install, and export.
+2. On a real iOS device and a real Android device with airplane mode on, record audio and get a transcript with no network use (verified by network capture and the allowlist test).
+3. Photos and audio survive encrypted backup, restore on a clean install, and export; OS backup restore (iCloud and Android Auto Backup) works, including when media is excluded.
 4. Trend charts match a hand-computed fixture dataset, including across a DST change and a travel/zone change.
 5. Privacy-delete removes the entry's text, transcript, and media files from disk, verified by test.
 6. Accessibility: screen-reader labels and Dynamic Type on all primary screens; charts have a table alternative.
 7. No network requests at runtime; no third-party SDKs; "Data Not Collected" label is accurate.
+8. Release readiness: privacy policy URL live, store privacy disclosures complete, export-compliance answered, legal review done, name cleared.
 
 ## 16. Risks
 
@@ -177,11 +195,23 @@ Full-text index over `entry.note` and transcript text (SQLite FTS5). Entries are
 | Users log health data despite positioning | Neutral copy, no interpretation, terms; revisit posture if it changes |
 | Generic scope creep ("track anything") | Fixed tracker types in v1; no custom formulas or scripting |
 
-## 17. Open questions
+## 17. Decisions and remaining questions
 
-1. iOS only, or iOS plus Android?
-2. Tauri or native SwiftUI (section 11)?
-3. Is a bundled Whisper-class model acceptable for app size, or is platform speech recognition enough?
-4. Should OS (iCloud/Google) backup of the data folder be allowed at all, or encrypted-export only?
-5. Will this ever be publicly distributed? If yes, get a short legal review of the privacy policy and store copy first.
-6. App name: "MedTracker" is no longer appropriate and the bundle id `app.medtracker.local` should change before any signing.
+### Decisions (owner, 2026-11-20)
+
+| # | Decision |
+|---|---|
+| T-1 | Platforms: iOS and Android. |
+| T-2 | Stack: Tauri 2 with a web view; custom native plugins for audio, photos and speech. |
+| T-3 | Transcription: platform speech recognition, on-device only, no cloud fallback. |
+| T-4 | Backup: iCloud and Google (OS-level) backup allowed, plus encrypted export. |
+| T-5 | Distribution: public release planned, with a legal review before the first release. |
+| T-6 | Name: **Sigil** (replaces MedTracker). |
+
+### Remaining questions
+
+1. **Bundle identifier.** Config currently uses a placeholder (`app.sigil.journal`). Replace it with a reverse-domain you control before any signing; it cannot change after a store release.
+2. **Name clearance.** "Sigil" is a common word and is already used by existing software (for example an EPUB editor). Search the App Store, Google Play, and trademark databases before committing to branding or a store listing.
+3. **Territories.** U.S.-only (D-31) or worldwide? Worldwide adds localization and regional privacy-law considerations even without data collection.
+4. **Minimum OS versions.** On-device recognition support depends on OS version; set minimums after the Phase 0 spike.
+5. **Who does the legal review** and when (before Phase 5 at the latest, ideally before Phase 2 since it covers audio and photos).
